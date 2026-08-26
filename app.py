@@ -155,11 +155,13 @@ def _search_reference_items(reference: list, query: str, limit: int = 8) -> list
     """بحث موحّد بقائمة الأصناف المرجعية بترتيب أولوية صريح (تراتبي، مو مجرد
     أعلى score): باركود تام -> رقم صنف تام -> باركود/رقم صنف يبدأ به أو
     يحتويه -> اسم مطابق تماماً (بعد توحيد عربي محافظ) -> اسم يبدأ بالاستعلام
-    -> اسم يحتويه -> أخيراً fuzzy كـfallback بس لما ما فيه أي تطابق حرفي.
-    أي تطابق حرفي بالاسم يسبق أي نتيجة fuzzy-only بغض النظر عن رقم التشابه
-    الضبابي (مشكلة حقيقية: "ريتا عصير برتقال..." اسم طويل حقيقي كان ينزل
-    تحت نتائج غير ذات صلة إطلاقاً لأن token_sort_ratio يعاقب الأسماء
-    الطويلة نسبةً لاستعلام قصير)."""
+    -> اسم يحتويه (كل هذي تُسمّى "direct_results"). fuzzy (token_sort_ratio)
+    ليست طبقة إضافية تُملأ بها النتائج دايماً - هي fallback حقيقي: تُستخدم
+    فقط لو direct_results فارغة كلياً لهذا الاستعلام. لو فيه أي تطابق حرفي
+    (حتى واحد بس)، نتائج fuzzy-only ما تظهر إطلاقاً، مهما كان limit فاضي
+    (مشكلة حقيقية: بحث "ريتا" كان يُكمّل بقية limit بمنتجات غير ذات صلة
+    إطلاقاً زي "رتينا"/"ريحان" بمجرد تشابه ضبابي عرضي، رغم وجود منتجات
+    "ريتا" حقيقية كافية أصلاً)."""
     query = (query or "").strip()
     if not query or not reference:
         return []
@@ -173,37 +175,41 @@ def _search_reference_items(reference: list, query: str, limit: int = 8) -> list
     TIER_NAME_EXACT = 3
     TIER_NAME_STARTSWITH = 4
     TIER_NAME_CONTAINS = 5
-    TIER_FUZZY = 6
 
-    ranked = []
+    direct = []
+    fuzzy = []
     for item in reference:
         code = item.code or ""
         barcode = item.barcode or ""
         name_norm = _normalize_arabic(item.name or "")
 
         if barcode and query == barcode:
-            ranked.append((TIER_EXACT_BARCODE, 100.0, item))
+            direct.append((TIER_EXACT_BARCODE, 100.0, item))
             continue
         if code and query == code:
-            ranked.append((TIER_EXACT_CODE, 100.0, item))
+            direct.append((TIER_EXACT_CODE, 100.0, item))
             continue
         if (barcode and query in barcode) or (code and query in code):
-            ranked.append((TIER_CODE_BARCODE_PARTIAL, 90.0, item))
+            direct.append((TIER_CODE_BARCODE_PARTIAL, 90.0, item))
             continue
         if name_norm and query_norm and query_norm == name_norm:
-            ranked.append((TIER_NAME_EXACT, 95.0, item))
+            direct.append((TIER_NAME_EXACT, 95.0, item))
             continue
         if name_norm and query_norm and name_norm.startswith(query_norm):
-            ranked.append((TIER_NAME_STARTSWITH, 85.0, item))
+            direct.append((TIER_NAME_STARTSWITH, 85.0, item))
             continue
         if name_norm and query_norm and query_norm in name_norm:
-            ranked.append((TIER_NAME_CONTAINS, 75.0, item))
+            direct.append((TIER_NAME_CONTAINS, 75.0, item))
             continue
         fuzzy_score = fuzz.token_sort_ratio(query_norm, name_norm) if name_norm else 0.0
-        ranked.append((TIER_FUZZY, fuzzy_score, item))
+        fuzzy.append((fuzzy_score, item))
 
-    ranked.sort(key=lambda t: (t[0], -t[1]))
-    return [(score, item) for _tier, score, item in ranked[:limit]]
+    if direct:
+        direct.sort(key=lambda t: (t[0], -t[1]))
+        return [(score, item) for _tier, score, item in direct[:limit]]
+
+    fuzzy.sort(key=lambda t: -t[0])
+    return fuzzy[:limit]
 
 
 def _plain_confidence_label(confidence: float) -> str:

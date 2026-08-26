@@ -2,16 +2,18 @@
 اختبار ترتيب _search_reference_items (البحث اليدوي بنافذة المراجعة وزر
 البحث اليمين) - يثبت الترتيب الفعلي للنتائج (مو بس وجودها)، حسب الأولوية
 المطلوبة: باركود تام -> رقم صنف تام -> باركود/رقم صنف جزئي -> اسم تام ->
-اسم يبدأ بالاستعلام -> اسم يحتويه -> fuzzy كـfallback بس. أي تطابق حرفي
-بالاسم يجب أن يسبق أي نتيجة fuzzy-only، بغض النظر عن رقم التشابه الضبابي
-(حالة "ريتا" الحقيقية - راجع app.py::_search_reference_items).
+اسم يبدأ بالاستعلام -> اسم يحتويه (= direct_results). fuzzy هي fallback
+حقيقي فقط - تُستخدم فقط لما direct_results فارغة كلياً؛ لو فيه أي تطابق
+حرفي، نتائج fuzzy-only ما تظهر إطلاقاً (حالة "ريتا" الحقيقية - راجع
+app.py::_search_reference_items).
 """
 
 import io
 import sys
+from pathlib import Path
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-sys.path.insert(0, r"D:\scanar\invoice_importer")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 results = []
 
@@ -63,14 +65,21 @@ print("\n--- 6) اسم يحتوي الاستعلام (contains) بدون بدا�
 r = _search_reference_items(reference, "ريتا مانجو")
 check("contains: أول نتيجة هي الصنف 701 ('عصير ريتا مانجو...' يحتويها بالمنتصف)", bool(r) and r[0][1].code == "701")
 
-print("\n--- 7) REAL BUG FIX: 'ريتا عصير برتقال...' (تطابق حرفي حقيقي) يسبق 'رتينا'/'ريحان' (fuzzy فقط غير ذات صلة) ---")
+print("\n--- 7) REAL BUG FIX: fuzzy = fallback حقيقي فقط، مو طبقة إضافية تملأ limit ---")
 r = _search_reference_items(reference, "ريتا")
 codes_order = [item.code for _score, item in r]
-check("702 (تطابق حرفي - startswith) يسبق 703 ('رتينا' - fuzzy فقط)", codes_order.index("702") < codes_order.index("703"))
-check("702 (تطابق حرفي - startswith) يسبق 704 ('ريحان' - fuzzy فقط)", codes_order.index("702") < codes_order.index("704"))
-check("701 (تطابق حرفي - contains) يسبق 703 ('رتينا' - fuzzy فقط)", codes_order.index("701") < codes_order.index("703"))
+check("النتائج تحتوي فعلاً منتجات 'ريتا' الحقيقية (700, 701, 702)", set(codes_order) >= {"700", "701", "702"})
+check(
+    "REAL BUG FIX: 'رتينا' (703, fuzzy فقط) لا تظهر إطلاقاً طالما فيه نتائج مباشرة كافية",
+    "703" not in codes_order,
+)
+check(
+    "REAL BUG FIX: 'ريحان' (704, fuzzy فقط) لا تظهر إطلاقاً طالما فيه نتائج مباشرة كافية",
+    "704" not in codes_order,
+)
+check("عدد النتائج = 3 بالضبط (لا يُملأ limit=8 بنتائج fuzzy إضافية)", len(r) == 3)
 
-print("\n--- 8) fuzzy fallback لسا يشتغل لما ما فيه أي تطابق حرفي إطلاقاً ---")
+print("\n--- 8) fuzzy fallback لسا يشتغل فعلياً - لكن فقط لما direct_results فارغة كلياً ---")
 r = _search_reference_items(reference, "حليب ندك")  # خطأ إملائي متعمّد - بلا ألف، بلا أي substring حرفي بأي اسم
 check("fuzzy fallback: لسا يلقط الصنف 500 (حليب نادك) كأفضل نتيجة رغم غياب أي تطابق حرفي", bool(r) and r[0][1].code == "500")
 check("fuzzy fallback: النتيجة ليست 100 (فعلاً طبقة fuzzy، مو تطابق حرفي)", r[0][0] < 100.0)
