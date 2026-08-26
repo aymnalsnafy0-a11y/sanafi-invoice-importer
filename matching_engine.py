@@ -735,15 +735,27 @@ def semantic_enhance_candidates(
     """طبقة orchestration: تحسب المرشّحين المحليين أولاً (سريع، بدون شبكة)،
     وبس لو سياسة التفعيل قالت الحالة صعبة فعلاً، تستدعي semantic_matcher.rerank()
     (قد يستغرق ثوانٍ - المتصل مسؤول يستدعيها من خيط خلفية لو حساس للتجميد،
-    راجع app.py). يرجّع (المرشّحين النهائيين بعد top_n، ai_was_deciding_factor)."""
-    local_candidates = suggest_candidates(line, reference, supplier_name, reference_attrs_index, top_n=max(top_n, 2))
+    راجع app.py). يرجّع (المرشّحين النهائيين بعد top_n، ai_was_deciding_factor).
 
-    if not _should_try_semantic_rerank(local_candidates):
-        return local_candidates[:top_n], False
+    مهم (إصلاح خطأ حقيقي): حجم القائمة المحلية المستخدمة لبناء shortlist
+    الذكاء الاصطناعي **مستقل تماماً** عن top_n (عدد النتائج المعروضة
+    للمستخدم بنهاية الدالة، يختلف حسب نقطة الاستدعاء - 2/3/5). لو استُخدم
+    top_n نفسه لجلب القائمة المحلية، AI ما كان يشوف إلا نفس العدد القليل
+    جداً المعروض أصلاً - يفقد بالضبط المرشّح الصحيح لو صياغة اسمه بعيدة
+    كفاية عن الفاتورة إنه يترتّب برقم 6 أو 10 محلياً (بالضبط الحالة اللي
+    هذي الطبقة أُنشئت عشانها). نجلب pool محلي بحجم
+    SEMANTIC_RERANK_SHORTLIST_SIZE على الأقل (suggest_candidates تبقى محلية
+    deterministic - top_n هنا مجرد قصّ نهائي على قائمة محسوبة مسبقاً، ما
+    يغيّر أي تقييم/ترتيب)، ونقصّ لـtop_n فقط بالنهاية بعد الدمج."""
+    pool_size = max(top_n, config.SEMANTIC_RERANK_SHORTLIST_SIZE, 2)
+    local_pool = suggest_candidates(line, reference, supplier_name, reference_attrs_index, top_n=pool_size)
+
+    if not _should_try_semantic_rerank(local_pool):
+        return local_pool[:top_n], False
 
     thresholds = settings_module.get_settings()
     line_attrs = extract_attributes(line.description)
-    shortlist = _build_shortlist_for_semantic(local_candidates)
+    shortlist = _build_shortlist_for_semantic(local_pool)
 
     ai_inputs = []
     for c in shortlist:
@@ -777,10 +789,10 @@ def semantic_enhance_candidates(
     )
 
     if ai_result is None:
-        return local_candidates[:top_n], False
+        return local_pool[:top_n], False
 
     merged, ai_was_deciding_factor = _merge_semantic_result(
-        local_candidates, ai_result, thresholds["auto_accept_threshold"]
+        local_pool, ai_result, thresholds["auto_accept_threshold"]
     )
     return merged[:top_n], ai_was_deciding_factor
 

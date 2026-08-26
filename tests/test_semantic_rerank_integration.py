@@ -210,6 +210,75 @@ check("ذاكرة متعلّمة قوية بلا تعارض/غموض -> صفر �
 check("النتيجة صحيحة (من الذاكرة/الدليل العادي المدموج)", bool(result6) and result6[0].item.code == "700")
 
 
+print("\n=== 7) اختبار شامل على الـorchestration نفسه (مو helper منفصل): الصنف الصحيح برتبة ضعيفة محلياً -> يوصل AI ويصعد بالنتيجة النهائية ===")
+# REAL BUG FIX (سبق دمجه): semantic_enhance_candidates كانت تجلب القائمة
+# المحلية بحجم max(top_n, 2) بس - يعني قبل الإصلاح، استدعاء بـtop_n=2 كان
+# يجلب مرشّحين اثنين بس محلياً، فأي صنف صحيح لكن بصياغة اسم بعيدة (رتبته
+# الثامنة مثلاً) ما كان يوصل حتى لقائمة AI أصلاً - يتفحّص هنا مباشرة عبر
+# الدالة الحقيقية end-to-end، مو بفحص القيمة الداخلية لوحدها.
+strong_wrong = [C(f"WRONG{i}", 63 + i, reason=f"الاسم {63+i}%") for i in range(7)]  # 7 مرشّحين أقوى بالاسم شوي لكن غلط - يسبقون الصحيح بالترتيب بفارق ضيق (69..63)
+correct_candidate7 = C("CORRECT8", 62, reason="الاسم 55%، الحجم/الوزن متطابق")  # الصنف الصحيح - رتبته الثامنة (تشابه اسم أضعف بفارق ضيق بس فعلاً هو الصح، وله دعم بنيوي حقيقي)
+weaker_tail = [C(f"WEAK{i}", 30 - i, reason=f"الاسم {30-i}%") for i in range(5)]  # مرشّحين إضافيين أضعف بعده
+full_pool7 = strong_wrong + [correct_candidate7] + weaker_tail
+full_pool7.sort(key=lambda c: c.confidence, reverse=True)
+
+check("تأكيد مسبق: فعلاً أكثر من 10 مرشّحين بالمجموع", len(full_pool7) > 10)
+correct_rank7 = full_pool7.index(correct_candidate7)
+check(f"تأكيد مسبق: الصنف الصحيح فعلاً برتبة ضعيفة محلياً (رتبة {correct_rank7}, تحت top_n=2 المطلوب للعرض)", correct_rank7 >= 2)
+
+original_suggest_candidates = matching_engine.suggest_candidates
+matching_engine.suggest_candidates = lambda *a, **k: full_pool7[: k.get("top_n", 5)]
+
+captured7 = {}
+
+
+def recording_rerank_finds_correct(*args, **kwargs):
+    captured7["received_codes"] = {c.code for c in kwargs["candidates"]}
+    return semantic_matcher.SemanticRerankResult(
+        selected_code="CORRECT8", confidence=90, reason="نفس المنتج فعلياً رغم اختلاف الصياغة", ambiguous=False,
+    )
+
+
+semantic_matcher.rerank = recording_rerank_finds_correct
+final7, deciding7 = matching_engine.semantic_enhance_candidates(L("وصف بصياغة بعيدة عن اسم القاعدة"), [], top_n=2)
+matching_engine.suggest_candidates = original_suggest_candidates
+semantic_matcher.rerank = _original_rerank
+
+check(
+    "REAL BUG FIX: AI فعلاً استلم الصنف الصحيح (رتبة ضعيفة محلياً) ضمن قائمة مرشّحيه، رغم أن top_n المطلوب للعرض=2 فقط",
+    "CORRECT8" in captured7.get("received_codes", set()),
+)
+check("بعد الترجيح، الصنف الصحيح صعد ضمن أفضل top_n=2 نتيجة نهائية معروضة", any(c.item.code == "CORRECT8" for c in final7))
+check("النتيجة الأولى فعلاً هو الصنف الصحيح بعد الترجيح", bool(final7) and final7[0].item.code == "CORRECT8")
+check("عدد النتائج المُرجعة للعرض لسا محترم لـtop_n=2 (مو حجم الـpool الداخلي)", len(final7) <= 2)
+
+
+print("\n=== 8) semantic_enhance_candidates(top_n=3): يرسل حتى 15 مرشّح لـAI عند الحاجة، لكن يرجّع 3 فقط للواجهة ===")
+big_pool8 = [C(f"P{i}", 90 - i, reason=f"الاسم {90-i}%") for i in range(20)]  # 20 مرشّح - أكبر من SEMANTIC_RERANK_SHORTLIST_SIZE (15)
+check("تأكيد مسبق: فعلاً أكثر من 15 مرشّح بالمجموع", len(big_pool8) > config.SEMANTIC_RERANK_SHORTLIST_SIZE)
+
+matching_engine.suggest_candidates = lambda *a, **k: big_pool8[: k.get("top_n", 5)]
+
+captured8 = {}
+
+
+def recording_rerank_counts(*args, **kwargs):
+    captured8["received_codes"] = {c.code for c in kwargs["candidates"]}
+    return semantic_matcher.SemanticRerankResult(selected_code="P0", confidence=80, reason="", ambiguous=False)
+
+
+semantic_matcher.rerank = recording_rerank_counts
+final8, _ = matching_engine.semantic_enhance_candidates(L("وصف عام"), [], top_n=3)
+matching_engine.suggest_candidates = original_suggest_candidates
+semantic_matcher.rerank = _original_rerank
+
+check(
+    f"REAL FEATURE: AI استلم حتى حد السقف (15) رغم أن top_n المطلوب للعرض=3 - العدد الفعلي: {len(captured8.get('received_codes', set()))}",
+    len(captured8.get("received_codes", set())) == config.SEMANTIC_RERANK_SHORTLIST_SIZE,
+)
+check("رغم ذلك، النتيجة النهائية المُرجعة للواجهة فعلاً 3 بس (top_n محترم بالعرض)", len(final8) == 3)
+
+
 print("\n--- summary ---")
 total = len(results)
 passed = sum(1 for _, ok in results if ok)
