@@ -124,17 +124,23 @@ def extract_attributes(text: str) -> ItemAttributes:
     if pack_count_raw is not None:
         attrs.pack_count = int(float(pack_count_raw.replace(",", ".")))
         size_value = float(size_raw.replace(",", "."))
-        attrs.size_value = size_value
-        attrs.size_unit = unit_raw.lower()
-        _, attrs.size_value_base = _unit_family_and_base(size_value, unit_raw)
+        # "0" أو "00" بالحجم/الوزن مو منتج حقيقي وزنه صفر - غالباً خطأ إدخال
+        # بالاسم (مثال حقيقي من قاعدة عميل: "دبس التمر كرم النخيل 00 جم").
+        # نتركه بلا حجم مكتشف (None) بدل قيمة صفرية تكسر log() لاحقاً بحساب
+        # صناديق الحجم (matching_engine._size_bucket_key).
+        if size_value > 0:
+            attrs.size_value = size_value
+            attrs.size_unit = unit_raw.lower()
+            _, attrs.size_value_base = _unit_family_and_base(size_value, unit_raw)
     else:
         m = _SIZE_RE.search(norm)
         if m:
             size_value = float(m.group(1).replace(",", "."))
             unit_raw = m.group(2)
-            attrs.size_value = size_value
-            attrs.size_unit = unit_raw.lower()
-            _, attrs.size_value_base = _unit_family_and_base(size_value, unit_raw)
+            if size_value > 0:
+                attrs.size_value = size_value
+                attrs.size_unit = unit_raw.lower()
+                _, attrs.size_value_base = _unit_family_and_base(size_value, unit_raw)
 
     # 2) عدد القطع لوحده لو ما انلقط بالنمط المجمّع (مثال: "كرتون 24 حبة")
     if attrs.pack_count is None:

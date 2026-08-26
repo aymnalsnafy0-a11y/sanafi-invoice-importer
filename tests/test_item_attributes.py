@@ -75,6 +75,20 @@ no_size = extract_attributes("بيبسي")
 conflict, reason = check_attribute_conflict(has_size, no_size)
 check("one side has no detected size at all: NOT flagged (missing != conflicting)", conflict is False)
 
+print("\n--- REAL BUG (found on a real client catalog, 2026-08-26): '00' as a size must not crash ---")
+# صنف حقيقي بقاعدة عميل فعلي: "دبس التمر كرم النخيل 00 جم" - قيمة الحجم
+# بالاسم نفسه "00" (خطأ إدخال بيانات على الأغلب). قبل الإصلاح: size_value=0.0
+# كان يمر كـsize_value_base=0.0 صالح (مو None)، وmatching_engine._size_bucket_key
+# يستدعي math.log(0.0) فيه -> crash يوقف استخراج الفاتورة بالكامل (خطأ يظهر
+# للمستخدم "expected a positive input, got 0.0"، ما يبان سببه واضح أبداً).
+zero_size = extract_attributes("دبس التمر كرم النخيل 00 جم")
+check("قيمة حجم صفرية بالاسم لا تُعامَل كحجم صالح (تبقى None)", zero_size.size_value is None and zero_size.size_value_base is None)
+
+zero_size_with_pack = extract_attributes("دبس 00 جم × 12 كرتون")
+check("نفس الشيء مع نمط 'عدد×حجم' المجمّع - الصفر ما يمر كحجم صالح", zero_size_with_pack.size_value is None)
+check("عدد القطع لسا يُستخرج طبيعي رغم تجاهل الحجم الصفري", zero_size_with_pack.pack_count == 12)
+
+
 print("\n--- brand guess (weak, best-effort) ---")
 brand_test = extract_attributes("نيدو علب 1800كغ")
 check("brand guess skips generic leading word 'علب', picks 'نيدو'", brand_test.brand == "نيدو")
