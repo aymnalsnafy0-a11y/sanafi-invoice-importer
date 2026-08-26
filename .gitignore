@@ -7,6 +7,7 @@ server_address.txt
 usage_state.json
 learned_matches.json
 matching_settings.json
+semantic_rerank_cache.json
 
 # ملفات بايثون مؤقتة
 __pycache__/

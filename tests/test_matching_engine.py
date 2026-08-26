@@ -23,6 +23,14 @@ learned_matches._MATCHES_FILE = Path(tmp_dir) / "learned_matches_test.json"
 settings_module._SETTINGS_FILE = Path(tmp_dir) / "matching_settings_test.json"
 
 import matching_engine
+import semantic_matcher
+
+# اختبارات مكتوبة قبل طبقة إعادة الترتيب الدلالي بالذكاء الاصطناعي - ما
+# تحتاجها ولا تتوقعها، وممنوع تعتمد على اتصال إنترنت حقيقي أو تدفع تكلفة
+# فعلية. نعطّل استدعاء AI الحقيقي هنا بغض النظر عن حالة الجهاز الفعلية
+# (مفتاح API موجود أو ai_enabled=true بـusage_state.json الحقيقي) - enhance_one
+# يرجع بالضبط لسلوكه القديم (محلي بحت) بمجرد ما rerank() ترجع None دايماً.
+semantic_matcher.rerank = lambda *a, **k: None
 from items import ReferenceItem, match_line_items
 from line_item import ExtractedLine
 

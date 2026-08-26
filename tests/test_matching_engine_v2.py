@@ -29,6 +29,11 @@ settings_module._SETTINGS_FILE = Path(tmp_dir) / "matching_settings_test.json"
 
 import config
 import matching_engine
+import semantic_matcher
+
+# اختبارات محرك محلي بحت - ممنوع تعتمد على اتصال إنترنت حقيقي أو تدفع
+# تكلفة فعلية. نعطّل استدعاء AI الحقيقي بغض النظر عن حالة الجهاز الفعلية.
+semantic_matcher.rerank = lambda *a, **k: None
 from items import ReferenceItem
 from line_item import ExtractedLine
 

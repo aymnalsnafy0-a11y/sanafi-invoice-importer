@@ -6,13 +6,13 @@
 
 import base64
 import io
-import os
 from dataclasses import dataclass
 
 import anthropic
 from PIL import Image
 from pydantic import BaseModel
 
+import ai_client
 import config
 import usage_tracker
 from line_item import ExtractedLine
@@ -84,31 +84,6 @@ EXTRACTION_PROMPT = """\
 """
 
 
-def _load_api_key() -> str | None:
-    key_file = config.ANTHROPIC_API_KEY_FILE
-    if key_file.exists():
-        key = key_file.read_text(encoding="utf-8").strip()
-        if key:
-            return key
-    return os.environ.get("ANTHROPIC_API_KEY")
-
-
-def _get_client() -> anthropic.Anthropic:
-    if not usage_tracker.is_ai_enabled():
-        raise RuntimeError(
-            "الذكاء الاصطناعي متوقف حالياً (أوقفته يدوياً من زر \"💰 رصيد الذكاء "
-            "الاصطناعي\"). فعّله من نفس الزر لو تبي تكمل الاستخراج أو الشات."
-        )
-    api_key = _load_api_key()
-    if not api_key:
-        raise RuntimeError(
-            "لم يتم العثور على مفتاح Anthropic API. ضعه في ملف "
-            f"{config.ANTHROPIC_API_KEY_FILE.name} داخل مجلد الأداة (سطر واحد "
-            "يحتوي المفتاح)، أو في متغير البيئة ANTHROPIC_API_KEY."
-        )
-    return anthropic.Anthropic(api_key=api_key)
-
-
 def _image_to_base64_png(img: Image.Image) -> str:
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -117,7 +92,7 @@ def _image_to_base64_png(img: Image.Image) -> str:
 
 def extract_line_items_vision(img: Image.Image) -> VisionPageResult:
     """يرسل صورة صفحة الفاتورة إلى Claude ويرجع بنودها + ملخص الضريبة إن وُجد."""
-    client = _get_client()
+    client = ai_client.get_client()
     image_b64 = _image_to_base64_png(img)
 
     try:

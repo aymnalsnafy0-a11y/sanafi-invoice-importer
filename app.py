@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+import ai_client
 import config
 import learned_matches
 import matching_engine
@@ -26,7 +27,7 @@ from exporter import export_to_excel
 from items import load_item_reference, match_line_items
 from line_item import ExtractedLine
 from pdf_utils import load_pages_as_images
-from vision_extract import _get_client, extract_line_items_vision
+from vision_extract import extract_line_items_vision
 
 # ---------- أدوات الشات (tool calling) - نفس فكرة get_field/edit_field/
 # search_in_field اللي وصفها المبرمج، بس مطبَّقة على جدول المراجعة عندنا
@@ -341,6 +342,10 @@ class InvoiceImporterApp(tk.Tk):
             self.review_panel, text="", font=("Arial", 10, "bold"), bg="#fff8e1", anchor="e", justify="right"
         )
         self.review_title_label.pack(fill="x", padx=10, pady=(8, 4))
+        self.review_ai_status_label = tk.Label(
+            self.review_panel, text="", fg="#6a1b9a", bg="#fff8e1", anchor="e", justify="right"
+        )
+        self.review_ai_status_label.pack(fill="x", padx=10)
         self.review_suggestions_frame = tk.Frame(self.review_panel, bg="#fff8e1")
         self.review_suggestions_frame.pack(fill="x", padx=10)
 
@@ -952,6 +957,9 @@ class InvoiceImporterApp(tk.Tk):
             fill="x", padx=16, pady=(16, 8)
         )
 
+        ai_status_label = tk.Label(dialog, text="", fg="#6a1b9a", anchor="e", justify="right")
+        ai_status_label.pack(fill="x", padx=16)
+
         suggestions_frame = tk.Frame(dialog)
         suggestions_frame.pack(fill="both", padx=16)
 
@@ -964,29 +972,59 @@ class InvoiceImporterApp(tk.Tk):
                 text=f"✓ تم اختيار: {candidate.item.name} (رقم الصنف {candidate.item.code})"
             )
 
-        candidates = matching_engine.suggest_candidates(
+        def render_suggestions(candidates):
+            for child in suggestions_frame.winfo_children():
+                child.destroy()
+            if not candidates:
+                tk.Label(
+                    suggestions_frame, text="لا يوجد اقتراح مناسب - ابحث يدوياً بالأسفل",
+                    anchor="e", justify="right",
+                ).pack(fill="x", pady=4)
+            for candidate in candidates:
+                row = tk.Frame(suggestions_frame)
+                row.pack(fill="x", pady=2)
+                tk.Button(
+                    row, text="اختيار", command=lambda c=candidate: pick(c), bg="#1565c0", fg="white",
+                ).pack(side="left", padx=4)
+                tk.Label(
+                    row,
+                    text=(
+                        f"{candidate.confidence:.0f}%  |  {candidate.item.code}  |  {candidate.item.name}  |  "
+                        f"{candidate.item.default_unit}  —  {candidate.reason}"
+                    ),
+                    anchor="e", justify="right",
+                ).pack(side="right", fill="x", expand=True)
+
+        # المحرك المحلي سريع بدون شبكة - يبان فوراً بدون أي تجميد. لو الحالة
+        # صعبة (راجع matching_engine.needs_semantic_rerank)، نحسّن الاقتراحات
+        # بخيط خلفية منفصل ونحدّث النافذة لما يخلص، بدل ما نجمّد الواجهة
+        # بانتظار رد الذكاء الاصطناعي (قد يأخذ ثوانٍ) - هذي النافذة نفسها
+        # تُفتح من الخيط الرئيسي (عبر _run_on_main_thread_sync)، فتجميدها
+        # يجمّد البرنامج كامل لحد ما ترد الشبكة
+        local_candidates = matching_engine.suggest_candidates(
             line, self.last_reference, supplier_name=self.invoice_supplier_name,
             reference_attrs_index=self.reference_attrs_index, top_n=5,
         )
-        if not candidates:
-            tk.Label(
-                suggestions_frame, text="لا يوجد اقتراح مناسب - ابحث يدوياً بالأسفل",
-                anchor="e", justify="right",
-            ).pack(fill="x", pady=4)
-        for candidate in candidates:
-            row = tk.Frame(suggestions_frame)
-            row.pack(fill="x", pady=2)
-            tk.Button(
-                row, text="اختيار", command=lambda c=candidate: pick(c), bg="#1565c0", fg="white",
-            ).pack(side="left", padx=4)
-            tk.Label(
-                row,
-                text=(
-                    f"{candidate.confidence:.0f}%  |  {candidate.item.code}  |  {candidate.item.name}  |  "
-                    f"{candidate.item.default_unit}  —  {candidate.reason}"
-                ),
-                anchor="e", justify="right",
-            ).pack(side="right", fill="x", expand=True)
+        render_suggestions(local_candidates)
+
+        if matching_engine.needs_semantic_rerank(local_candidates):
+            ai_status_label.config(text="🤖 جاري تحسين الاقتراحات بالذكاء الاصطناعي...")
+
+            def ai_worker():
+                enhanced, _ = matching_engine.semantic_enhance_candidates(
+                    line, self.last_reference, supplier_name=self.invoice_supplier_name,
+                    reference_attrs_index=self.reference_attrs_index, top_n=5,
+                )
+
+                def apply_result():
+                    if not dialog.winfo_exists():
+                        return  # المستخدم سكّر النافذة قبل ما AI يخلص - نتجاهل النتيجة بهدوء
+                    ai_status_label.config(text="")
+                    render_suggestions(enhanced)
+
+                self.after(0, apply_result)
+
+            threading.Thread(target=ai_worker, daemon=True).start()
 
         ttk.Separator(dialog, orient="horizontal").pack(fill="x", padx=16, pady=8)
 
@@ -1340,34 +1378,67 @@ class InvoiceImporterApp(tk.Tk):
         for child in self.review_search_results_frame.winfo_children():
             child.destroy()
         self.review_search_entry.delete(0, "end")
+        self.review_ai_status_label.config(text="")
 
         self.review_title_label.config(text=f"مراجعة: {line.description}")
 
-        candidates = matching_engine.suggest_candidates(
+        def render_suggestions(candidates):
+            for child in self.review_suggestions_frame.winfo_children():
+                child.destroy()
+            if not candidates:
+                tk.Label(
+                    self.review_suggestions_frame, text="لا يوجد اقتراح مناسب - اختر يدوياً أو اعتبره غير موجود",
+                    bg="#fff8e1", anchor="e", justify="right",
+                ).pack(fill="x", pady=2)
+            for candidate in candidates:
+                row = tk.Frame(self.review_suggestions_frame, bg="#fff8e1")
+                row.pack(fill="x", pady=2)
+                tk.Button(
+                    row, text="اختر", command=lambda c=candidate: self._pick_review_candidate(c), bg="#1565c0", fg="white",
+                ).pack(side="left", padx=4)
+                tk.Label(
+                    row,
+                    text=f"{candidate.confidence:.0f}%  |  {candidate.item.code}  |  {candidate.item.name}  —  {candidate.reason}",
+                    bg="#fff8e1", anchor="e", justify="right",
+                ).pack(side="right", fill="x", expand=True)
+
+        # المحرك المحلي (suggest_candidates) سريع بدون شبكة - يبان فوراً،
+        # بدون أي تجميد. لو الحالة صعبة (راجع matching_engine.needs_semantic_rerank)،
+        # نحسّن الاقتراحات بخيط خلفية منفصل ونحدّث اللوحة لما يخلص، بدل ما
+        # نجمّد الواجهة بانتظار رد الذكاء الاصطناعي (قد يأخذ ثوانٍ)
+        local_candidates = matching_engine.suggest_candidates(
             line, self.last_reference, supplier_name=self.invoice_supplier_name,
             reference_attrs_index=self.reference_attrs_index, top_n=3,
         )
-        if not candidates:
-            tk.Label(
-                self.review_suggestions_frame, text="لا يوجد اقتراح مناسب - اختر يدوياً أو اعتبره غير موجود",
-                bg="#fff8e1", anchor="e", justify="right",
-            ).pack(fill="x", pady=2)
-        for candidate in candidates:
-            row = tk.Frame(self.review_suggestions_frame, bg="#fff8e1")
-            row.pack(fill="x", pady=2)
-            tk.Button(
-                row, text="اختر", command=lambda c=candidate: self._pick_review_candidate(c), bg="#1565c0", fg="white",
-            ).pack(side="left", padx=4)
-            tk.Label(
-                row,
-                text=f"{candidate.confidence:.0f}%  |  {candidate.item.code}  |  {candidate.item.name}  —  {candidate.reason}",
-                bg="#fff8e1", anchor="e", justify="right",
-            ).pack(side="right", fill="x", expand=True)
+        render_suggestions(local_candidates)
+
+        if matching_engine.needs_semantic_rerank(local_candidates):
+            self.review_ai_status_label.config(text="🤖 جاري تحسين الاقتراحات بالذكاء الاصطناعي...")
+
+            def ai_worker():
+                enhanced, _ = matching_engine.semantic_enhance_candidates(
+                    line, self.last_reference, supplier_name=self.invoice_supplier_name,
+                    reference_attrs_index=self.reference_attrs_index, top_n=3,
+                )
+
+                def apply_result():
+                    # لو المستخدم انتقل لصف ثاني أو سكّر اللوحة قبل ما AI
+                    # يخلص، نتجاهل النتيجة القديمة بهدوء - ما نحدّث عرض صف
+                    # ما عاد هو المعروض حالياً
+                    if self._review_idx != idx or self.review_panel.winfo_manager() != "pack":
+                        return
+                    self.review_ai_status_label.config(text="")
+                    render_suggestions(enhanced)
+
+                self.after(0, apply_result)
+
+            threading.Thread(target=ai_worker, daemon=True).start()
 
         self.review_panel.pack(fill="x", padx=8, pady=(0, 8), before=self._bottom_frame)
 
     def _hide_review_panel(self):
         self._review_idx = None
+        self.review_ai_status_label.config(text="")
         self.review_panel.pack_forget()
 
     def _pick_review_candidate(self, candidate):
@@ -1750,7 +1821,7 @@ class InvoiceImporterApp(tk.Tk):
 
     def _chat_worker(self, user_text: str):
         try:
-            client = _get_client()
+            client = ai_client.get_client()
         except RuntimeError as exc:
             self.after(0, lambda: self._append_chat_message("خطأ", str(exc)))
             return

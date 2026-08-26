@@ -30,6 +30,7 @@ from rapidfuzz import fuzz, process
 
 import config
 import learned_matches
+import semantic_matcher
 import settings as settings_module
 from item_attributes import (
     ItemAttributes,
@@ -566,24 +567,247 @@ def suggest_candidates(
     return deduped[:top_n]
 
 
+# ============ إعادة الترتيب الدلالي بالذكاء الاصطناعي (طبقة اختيارية) ============
+# ملاحظة معمارية مهمة: suggest_candidates() أعلاه تبقى دالة محلية سريعة
+# deterministic بدون أي استدعاء شبكي - تُستخدم لوحدها بأي مكان (خصوصاً
+# الاختبارات، بدون حاجة لأي محاكاة/موك). طبقة الذكاء الاصطناعي منفصلة
+# تماماً هنا (semantic_enhance_candidates) - orchestration فوق
+# suggest_candidates، تُستدعى فقط من نقاط التكامل اللي تقبل تأخير شبكي
+# محتمل (enhance_one، ونافذتا المراجعة بـapp.py عبر خيط خلفية).
+
+
+def _should_try_semantic_rerank(candidates: list[MatchCandidate]) -> bool:
+    """سياسة التفعيل: استدعِ AI فقط لو القائمة المحلية غير فارغة، و(أفضل
+    مرشّح < عتبة القبول التلقائي، أو فجوة الغموض غير كافية). قائمة فارغة
+    كلياً تعني مراجعة بشرية مباشرة بدون استدعاء - AI هنا مُعيد ترتيب لقائمة
+    موجودة، مو محرك بحث، وممنوع يختار صنفاً غير موجود بالمرشّحين المحليين
+    أصلاً. مطابقة باركود/رقم صنف مؤكدة، أو ذاكرة/محلي قوي بلا غموض ولا
+    تعارض، أصلاً ما توصل هنا (تُقبل تلقائياً محلياً قبل أي تفكير باستدعاء AI)."""
+    if not candidates:
+        return False
+    thresholds = settings_module.get_settings()
+    best = candidates[0]
+    if best.confidence < thresholds["auto_accept_threshold"]:
+        return True
+    if len(candidates) >= 2:
+        gap = best.confidence - candidates[1].confidence
+        min_gap = thresholds.get("min_confidence_gap", config.MATCH_MIN_CONFIDENCE_GAP)
+        if gap < min_gap:
+            return True
+    return False
+
+
+def needs_semantic_rerank(candidates: list[MatchCandidate]) -> bool:
+    """واجهة عامة رفيعة فوق _should_try_semantic_rerank - يستخدمها app.py
+    (بدون الاعتماد على دالة داخلية بادئتها _) عشان يقرر هل يبدأ خيط خلفية
+    لإعادة الترتيب الدلالي أو يعرض المرشّحين المحليين فوراً بدون أي تأخير."""
+    return _should_try_semantic_rerank(candidates)
+
+
+def _build_shortlist_for_semantic(
+    candidates: list[MatchCandidate], limit: int | None = None
+) -> list[MatchCandidate]:
+    """يبني قائمة مختصرة متنوعة المصادر لإرسالها لـAI - مو بس أفضل N
+    بالثقة المحلية (ممكن يفقد تنوّع مهم، مثلاً مرشّح تاريخ مورد ذو صلة
+    حقيقية لكن ثقته المحلية أقل من عدة مرشّحين اسم). نحجز شرائح صغيرة
+    لمصادر مميّزة أولاً (تاريخ مورد، تعارض بنيوي - يستاهل AI يشوفه كـ"قريب
+    لكن فيه مشكلة")، ثم نعبّي الباقي بالأعلى ثقة عموماً (يغطي تلقائياً
+    مرشّحي الاسم/الخصائص القوية، لأن القائمة مرتّبة بالثقة أصلاً)."""
+    if limit is None:
+        limit = config.SEMANTIC_RERANK_SHORTLIST_SIZE
+    if len(candidates) <= limit:
+        return list(candidates)
+
+    selected: list[MatchCandidate] = []
+    selected_codes: set[str] = set()
+
+    def take(predicate, quota):
+        count = 0
+        for c in candidates:
+            if len(selected) >= limit or count >= quota:
+                return
+            if c.item.code in selected_codes or not predicate(c):
+                continue
+            selected.append(c)
+            selected_codes.add(c.item.code)
+            count += 1
+
+    take(lambda c: c.from_supplier_history, 3)
+    take(lambda c: c.has_structural_conflict, 3)
+
+    for c in candidates:
+        if len(selected) >= limit:
+            break
+        if c.item.code in selected_codes:
+            continue
+        selected.append(c)
+        selected_codes.add(c.item.code)
+
+    return selected[:limit]
+
+
+def _semantic_confidence_boost(ai_confidence: float, ai_ambiguous: bool) -> float:
+    """صيغة محافظة عمداً - رقم ثقة AI الخام أبداً ما يساوي ثقة نظامية
+    مباشرة. لو AI نفسه أعلن ambiguous=true، صفر بوست (عدم يقين AI ما
+    يستاهل رفع ثقة النظام). قيم متحفّظة (8/4/2) مقارنة بإصدار أول اقترحناه
+    (15/8/3) - AI بالإصدار الأول أقوى بإعادة الترتيب منه برفع الثقة المطلقة."""
+    if ai_ambiguous:
+        return 0.0
+    if ai_confidence >= 85:
+        return 8.0
+    if ai_confidence >= 70:
+        return 4.0
+    if ai_confidence >= 50:
+        return 2.0
+    return 0.0
+
+
+_STRONG_LOCAL_SUPPORT_MARKERS = (
+    "الحجم/الوزن متطابق",
+    "عدد القطع متطابق",
+    "نوع التعبئة متطابق",
+    "الوحدة الصريحة متطابقة",
+    "مطابقة سابقة مؤكَّدة",
+)
+
+
+def _has_strong_local_support(candidate: MatchCandidate) -> bool:
+    """"أدلة محلية قوية وواضحة" - شرط إضافي مطلوب عشان AI يُسمح له يساهم
+    بعبور عتبة القبول التلقائي (راجع _merge_semantic_result). نطلب إشارتين
+    بنيويتين موافقتين على الأقل (أو ذاكرة متعلّمة + إشارة وحدة مثلاً) -
+    مجرد "عدم وجود تعارض" لا يكفي، لازم موافقة فعلية مذكورة صراحة بالسبب."""
+    hits = sum(1 for marker in _STRONG_LOCAL_SUPPORT_MARKERS if marker in candidate.reason)
+    return hits >= 2
+
+
+def _merge_semantic_result(
+    local_candidates: list[MatchCandidate],
+    ai_result: semantic_matcher.SemanticRerankResult,
+    auto_accept_threshold: float,
+) -> tuple[list[MatchCandidate], bool]:
+    """يدمج نتيجة AI مع القائمة المحلية. يرجّع (القائمة المحدَّثة،
+    ai_was_deciding_factor). العلَم الثاني = True فقط لو AI كان **السبب
+    الوحيد** لعبور عتبة القبول التلقائي (المرشّح كان تحتها محلياً، وما فيه
+    أدلة محلية قوية داعمة كافية) - بهذا الإصدار الأول، هذي الحالة تبقى
+    تحتاج مراجعة بشرية إلزامياً (قرار محافظ متعمَّد، راجع enhance_one)."""
+    selected = next((c for c in local_candidates if c.item.code == ai_result.selected_code), None)
+    if selected is None:
+        # دفاع مضاعف - matching_engine ما يفترض صحة رد semantic_matcher عمياً
+        # حتى لو فحصه هو نفسه أصلاً (طبقتان أمان أفضل من طبقة وحدة)
+        return local_candidates, False
+
+    boost = _semantic_confidence_boost(ai_result.confidence, ai_result.ambiguous)
+    local_hard_cap = config.MATCH_ATTRIBUTE_CONFLICT_CAP if selected.has_structural_conflict else 100.0
+    was_below_threshold_locally = selected.confidence < auto_accept_threshold
+    boosted_confidence = min(selected.confidence + boost, local_hard_cap, 100.0)
+
+    ai_was_deciding_factor = (
+        was_below_threshold_locally
+        and boosted_confidence >= auto_accept_threshold
+        and not _has_strong_local_support(selected)
+    )
+
+    reason_note = f"AI semantic rerank: {ai_result.reason}" if ai_result.reason else "AI semantic rerank: تشابه دلالي قوي"
+    if ai_result.ambiguous:
+        reason_note += " (AI نفسه غير متأكد)"
+
+    boosted = MatchCandidate(
+        item=selected.item,
+        confidence=boosted_confidence,
+        reason=f"{selected.reason}  |  {reason_note}",
+        has_structural_conflict=selected.has_structural_conflict,
+        from_supplier_history=selected.from_supplier_history,
+    )
+
+    updated = [c for c in local_candidates if c.item.code != ai_result.selected_code]
+    updated.append(boosted)
+    updated.sort(key=lambda c: c.confidence, reverse=True)
+    return updated, ai_was_deciding_factor
+
+
+def semantic_enhance_candidates(
+    line: ExtractedLine,
+    reference: list[ReferenceItem],
+    supplier_name: str | None = None,
+    reference_attrs_index: ReferenceIndex | None = None,
+    top_n: int = 5,
+) -> tuple[list[MatchCandidate], bool]:
+    """طبقة orchestration: تحسب المرشّحين المحليين أولاً (سريع، بدون شبكة)،
+    وبس لو سياسة التفعيل قالت الحالة صعبة فعلاً، تستدعي semantic_matcher.rerank()
+    (قد يستغرق ثوانٍ - المتصل مسؤول يستدعيها من خيط خلفية لو حساس للتجميد،
+    راجع app.py). يرجّع (المرشّحين النهائيين بعد top_n، ai_was_deciding_factor)."""
+    local_candidates = suggest_candidates(line, reference, supplier_name, reference_attrs_index, top_n=max(top_n, 2))
+
+    if not _should_try_semantic_rerank(local_candidates):
+        return local_candidates[:top_n], False
+
+    thresholds = settings_module.get_settings()
+    line_attrs = extract_attributes(line.description)
+    shortlist = _build_shortlist_for_semantic(local_candidates)
+
+    ai_inputs = []
+    for c in shortlist:
+        ref_attrs = extract_attributes(c.item.name)
+        ai_inputs.append(
+            semantic_matcher.SemanticCandidateInput(
+                code=c.item.code,
+                name=c.item.name,
+                barcode=c.item.barcode,
+                unit=c.item.default_unit,
+                size_value=ref_attrs.size_value,
+                size_unit=ref_attrs.size_unit,
+                pack_count=ref_attrs.pack_count,
+                unit_word=ref_attrs.unit_word,
+                local_confidence=c.confidence,
+                local_reason=c.reason,
+            )
+        )
+
+    ai_result = semantic_matcher.rerank(
+        description=line.description,
+        supplier_name=supplier_name,
+        quantity=line.quantity,
+        unit=line.unit,
+        unit_price=line.unit_price,
+        size_value=line_attrs.size_value,
+        size_unit=line_attrs.size_unit,
+        pack_count=line_attrs.pack_count,
+        unit_word=line_attrs.unit_word,
+        candidates=ai_inputs,
+    )
+
+    if ai_result is None:
+        return local_candidates[:top_n], False
+
+    merged, ai_was_deciding_factor = _merge_semantic_result(
+        local_candidates, ai_result, thresholds["auto_accept_threshold"]
+    )
+    return merged[:top_n], ai_was_deciding_factor
+
+
 def enhance_one(
     line: ExtractedLine,
     reference: list[ReferenceItem],
     supplier_name: str | None = None,
     reference_attrs_index: ReferenceIndex | None = None,
 ) -> None:
-    """يعيد حساب مطابقة سطر ما تطابق بالباركود من الصفر. يُطبَّق التطابق
-    فعلياً (matched_item_code وغيره) بس لو تحقق **كل** مما يلي:
+    """يعيد حساب مطابقة سطر ما تطابق بالباركود من الصفر (يشمل محاولة إعادة
+    ترتيب دلالي بالذكاء الاصطناعي للحالات الصعبة - راجع semantic_enhance_candidates؛
+    يشتغل هذا أثناء الاستخراج بخيط خلفية أصلاً بـapp.py، فتأخير شبكي محتمل
+    آمن هنا). يُطبَّق التطابق فعلياً (matched_item_code وغيره) بس لو تحقق **كل** مما يلي:
     1. ثقة أفضل مرشّح >= عتبة القبول التلقائي.
-    2. الفرق عن ثاني أفضل مرشّح كافٍ (فجوة غموض - config.MATCH_MIN_CONFIDENCE_GAP) -
-       مرشّحين متقاربين جداً (مثلاً 96% و94%) تعتبر حالة غامضة تحتاج مراجعة
-       بشرية حتى لو الأول عدّى العتبة.
+    2. الفرق عن ثاني أفضل مرشّح كافٍ (فجوة غموض - config.MATCH_MIN_CONFIDENCE_GAP).
+    3. لو AI ساهم بالثقة، ما يكون **السبب الوحيد** لعبور العتبة بدون أدلة
+       محلية قوية داعمة (راجع _merge_semantic_result - قرار محافظ متعمَّد
+       بهذا الإصدار الأول).
     غير كذا يبقى matched_item_code فاضي (نفس مبدأ الأداة: لا تخمّن) بس
     match_score/match_reason يتعبّون لعرض أقرب اقتراح بجدول المراجعة."""
     if reference_attrs_index is None:
         reference_attrs_index = build_reference_attrs_index(reference)
 
-    candidates = suggest_candidates(line, reference, supplier_name, reference_attrs_index, top_n=2)
+    candidates, ai_was_deciding_factor = semantic_enhance_candidates(
+        line, reference, supplier_name, reference_attrs_index, top_n=2
+    )
     if not candidates:
         line.needs_review = True
         return
@@ -599,10 +823,15 @@ def enhance_one(
         if gap < min_gap:
             ambiguous = True
 
-    if best.confidence >= thresholds["auto_accept_threshold"] and not ambiguous:
+    if best.confidence >= thresholds["auto_accept_threshold"] and not ambiguous and not ai_was_deciding_factor:
         _apply_match(line, best.item, best.confidence)
     else:
         line.match_score = best.confidence
         line.needs_review = True
         if ambiguous:
             line.match_reason += f"  |  ⚠ مرشّح ثاني قريب جداً ({candidates[1].confidence:.0f}%) - يحتاج مراجعة بشرية"
+        if ai_was_deciding_factor:
+            line.match_reason += (
+                "  |  ⚠ الذكاء الاصطناعي هو سبب عبور عتبة القبول لوحده بدون أدلة "
+                "محلية قوية كافية - يحتاج مراجعة بشرية"
+            )

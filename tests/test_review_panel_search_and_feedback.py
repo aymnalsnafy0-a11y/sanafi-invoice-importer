@@ -15,6 +15,12 @@ def check(name, condition):
 
 import app
 import matching_engine
+import semantic_matcher
+
+# اختبارات محلية بحتة - app.py الحين يستدعي طبقة إعادة الترتيب الدلالي من
+# لوحة المراجعة (بخيط خلفية). نعطّل الاستدعاء الحقيقي بغض النظر عن حالة
+# الجهاز الفعلية - ممنوع الاختبارات تحتاج إنترنت حقيقي أو تدفع تكلفة فعلية.
+semantic_matcher.rerank = lambda *a, **k: None
 from items import ReferenceItem
 from line_item import ExtractedLine
 

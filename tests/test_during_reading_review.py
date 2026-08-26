@@ -26,6 +26,13 @@ settings_module._SETTINGS_FILE = Path(tmp_dir) / "matching_settings_test.json"
 
 import app
 import matching_engine
+import semantic_matcher
+
+# اختبارات محلية بحتة - app.py الحين يستدعي طبقة إعادة الترتيب الدلالي من
+# نوافذ المراجعة (بخيط خلفية). نعطّل الاستدعاء الحقيقي بغض النظر عن حالة
+# الجهاز الفعلية (مفتاح API/ai_enabled) - ممنوع الاختبارات تحتاج إنترنت
+# حقيقي أو تدفع تكلفة فعلية.
+semantic_matcher.rerank = lambda *a, **k: None
 from app import _BatchInvoice
 from items import ReferenceItem
 from line_item import ExtractedLine
