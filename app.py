@@ -153,6 +153,28 @@ def _search_reference_items(reference: list, query: str, limit: int = 8) -> list
     return scored[:limit]
 
 
+def _plain_confidence_label(confidence: float) -> str:
+    """وصف بالعربي البسيط بدل نسبة مئوية خام - قرار صريح من المستخدم
+    (اقتراحات المراجعة كانت "مو مفهومة تمام" برأيه) - يوسّع نفس مبدأ
+    "بدون نسبة تشابه مربكة" المطبَّق سابقاً بنتائج البحث اليدوي."""
+    if confidence >= 90:
+        return "✓ مطابقة قوية جداً"
+    if confidence >= 70:
+        return "قريب جداً"
+    if confidence >= 50:
+        return "احتمال جيد"
+    return "احتمال ضعيف"
+
+
+def _extract_warning_notes(reason: str) -> str:
+    """يستخرج بس أجزاء التحذير (⚠) من نص السبب التقني الكامل - يخفي تفاصيل
+    داخلية (نسب فرعية، أسماء فحوصات مثل "الوحدة الصريحة متطابقة") عن مستخدم
+    غير تقني، ويبقي بس اللي فعلاً يستاهل انتباهه قبل ما يضغط اختيار."""
+    parts = [p.strip() for p in (reason or "").split("،")]
+    warnings = [p for p in parts if p.startswith("⚠")]
+    return "  ".join(warnings)
+
+
 class InvoiceImporterApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -175,7 +197,6 @@ class InvoiceImporterApp(tk.Tk):
         self.invoice_supplier_name: str | None = None
         self.chat_history: list = []
         self._chat_window: tk.Toplevel | None = None
-        self._review_idx: int | None = None
 
         self._build_ui()
         # تحميل قائمة الأصناف من قاعدة البيانات تلقائياً من أول فتح للبرنامج
@@ -334,40 +355,6 @@ class InvoiceImporterApp(tk.Tk):
 
         self.tree_unmatched.bind("<<TreeviewSelect>>", self._on_row_selected)
         self.tree_matched.bind("<<TreeviewSelect>>", self._on_row_selected)
-
-        # لوحة مراجعة صغيرة تحت الجدول (وضع "بعد الاستخراج") - تبان بس لما
-        # تحدد صف "يحتاج مراجعة"، فيها أقرب 3 مرشّحين ممكن تختار منهم مباشرة
-        self.review_panel = tk.Frame(self, bg="#fff8e1", relief="groove", borderwidth=1)
-        self.review_title_label = tk.Label(
-            self.review_panel, text="", font=("Arial", 10, "bold"), bg="#fff8e1", anchor="e", justify="right"
-        )
-        self.review_title_label.pack(fill="x", padx=10, pady=(8, 4))
-        self.review_ai_status_label = tk.Label(
-            self.review_panel, text="", fg="#6a1b9a", bg="#fff8e1", anchor="e", justify="right"
-        )
-        self.review_ai_status_label.pack(fill="x", padx=10)
-        self.review_suggestions_frame = tk.Frame(self.review_panel, bg="#fff8e1")
-        self.review_suggestions_frame.pack(fill="x", padx=10)
-
-        review_search_bar = tk.Frame(self.review_panel, bg="#fff8e1")
-        review_search_bar.pack(fill="x", padx=10, pady=(6, 0))
-        tk.Label(review_search_bar, text="بحث يدوي (بالاسم أو الباركود أو رقم الصنف):", bg="#fff8e1", anchor="e", justify="right").pack(fill="x")
-        self.review_search_entry = tk.Entry(review_search_bar, justify="right")
-        self.review_search_entry.pack(fill="x", pady=4)
-        self.review_search_entry.bind("<KeyRelease>", self._on_review_search_typed)
-        self.review_search_results_frame = tk.Frame(self.review_panel, bg="#fff8e1")
-        self.review_search_results_frame.pack(fill="x", padx=10)
-
-        review_actions = tk.Frame(self.review_panel, bg="#fff8e1")
-        review_actions.pack(fill="x", padx=10, pady=(4, 8))
-        tk.Button(
-            review_actions,
-            text="اعتباره صنف غير موجود بالقاعدة",
-            command=self._mark_selected_not_in_catalog,
-            bg="#ef6c00",
-            fg="white",
-        ).pack(side="right", padx=4)
-        tk.Button(review_actions, text="إغلاق", command=self._hide_review_panel).pack(side="right", padx=4)
 
         bottom = tk.Frame(self)
         bottom.pack(fill="x", padx=8, pady=8)
@@ -938,9 +925,13 @@ class InvoiceImporterApp(tk.Tk):
             self._show_batch_index_fresh(batch_idx)
         return self._open_review_dialog(line_idx, line)
 
-    def _open_review_dialog(self, idx: int, line: ExtractedLine) -> str:
-        """نافذة مراجعة صنف وحد أثناء وضع "أثناء القراءة": حتى 5 مرشّحين،
-        بحث يدوي سريع، وأزرار اختيار/تخطي/اعتباره غير موجود/إلغاء الباقي.
+    def _open_review_dialog(self, idx: int, line: ExtractedLine, show_cancel_button: bool = True) -> str:
+        """نافذة مراجعة صنف وحد - تُستخدم بوضعين: أثناء القراءة (يمرّ عليها
+        كل صف "يحتاج مراجعة" بالدفعة تباعاً، show_cancel_button=True زي
+        الافتراضي، عشان زر "إلغاء المراجعة المتبقية" منطقي هناك) وبعد
+        الاستخراج (الضغط على أي صف بجدول "أصناف غير موجودة" يفتحها مباشرة
+        لصف واحد بس، show_cancel_button=False - ما فيه "طابور" يُلغى).
+        حتى 5 مرشّحين، بحث يدوي سريع، وأزرار اختيار/تخطي/اعتباره غير موجود.
         الاختيار يمر عبر _apply_edit_to_model - نفس مسار التعديل اليدوي
         بالضبط، صفر منطق مكرر."""
         result = {"action": "skip"}
@@ -948,20 +939,25 @@ class InvoiceImporterApp(tk.Tk):
         dialog.title("مراجعة صنف يحتاج تأكيد")
         dialog.transient(self)
         dialog.grab_set()
-        dialog.geometry("480x460")
+        dialog.geometry("520x520")
 
         header = f"الصنف بالفاتورة: {line.description}"
         if line.barcode:
             header += f"\nباركود الفاتورة: {line.barcode}"
-        tk.Label(dialog, text=header, font=("Arial", 11, "bold"), wraplength=440, justify="right", anchor="e").pack(
+        tk.Label(dialog, text=header, font=("Arial", 11, "bold"), wraplength=480, justify="right", anchor="e").pack(
             fill="x", padx=16, pady=(16, 8)
         )
 
         ai_status_label = tk.Label(dialog, text="", fg="#6a1b9a", anchor="e", justify="right")
         ai_status_label.pack(fill="x", padx=16)
 
+        tk.Label(
+            dialog, text="أقرب الأصناف بالقاعدة - اضغط \"اختيار\" جنب الصنف الصحيح:",
+            anchor="e", justify="right", font=("Arial", 9),
+        ).pack(fill="x", padx=16, pady=(4, 0))
+
         suggestions_frame = tk.Frame(dialog)
-        suggestions_frame.pack(fill="both", padx=16)
+        suggestions_frame.pack(fill="both", padx=16, pady=(4, 0))
 
         def pick(candidate):
             self._apply_edit_to_model(idx, "code", candidate.item.code)
@@ -981,19 +977,20 @@ class InvoiceImporterApp(tk.Tk):
                     anchor="e", justify="right",
                 ).pack(fill="x", pady=4)
             for candidate in candidates:
-                row = tk.Frame(suggestions_frame)
-                row.pack(fill="x", pady=2)
+                row = tk.Frame(suggestions_frame, relief="groove", borderwidth=1)
+                row.pack(fill="x", pady=3)
                 tk.Button(
                     row, text="اختيار", command=lambda c=candidate: pick(c), bg="#1565c0", fg="white",
-                ).pack(side="left", padx=4)
-                tk.Label(
-                    row,
-                    text=(
-                        f"{candidate.confidence:.0f}%  |  {candidate.item.code}  |  {candidate.item.name}  |  "
-                        f"{candidate.item.default_unit}  —  {candidate.reason}"
-                    ),
-                    anchor="e", justify="right",
-                ).pack(side="right", fill="x", expand=True)
+                    font=("Arial", 10, "bold"), width=8,
+                ).pack(side="left", padx=6, pady=6)
+                info = tk.Frame(row)
+                info.pack(side="right", fill="x", expand=True, padx=(4, 8), pady=4)
+                tk.Label(info, text=candidate.item.name, font=("Arial", 11, "bold"), anchor="e", justify="right").pack(fill="x")
+                warnings = _extract_warning_notes(candidate.reason)
+                subtitle = f"{_plain_confidence_label(candidate.confidence)}   •   {candidate.item.code}   •   {candidate.item.default_unit}"
+                tk.Label(info, text=subtitle, fg="#555555", anchor="e", justify="right", font=("Arial", 9)).pack(fill="x")
+                if warnings:
+                    tk.Label(info, text=warnings, fg="#b71c1c", anchor="e", justify="right", font=("Arial", 9)).pack(fill="x")
 
         # المحرك المحلي سريع بدون شبكة - يبان فوراً بدون أي تجميد. لو الحالة
         # صعبة (راجع matching_engine.needs_semantic_rerank)، نحسّن الاقتراحات
@@ -1074,9 +1071,10 @@ class InvoiceImporterApp(tk.Tk):
             result["action"] = "cancel_batch"
             dialog.destroy()
 
-        tk.Button(actions, text="إلغاء المراجعة المتبقية", command=cancel_batch, bg="#b71c1c", fg="white").pack(
-            side="left", padx=4
-        )
+        if show_cancel_button:
+            tk.Button(actions, text="إلغاء المراجعة المتبقية", command=cancel_batch, bg="#b71c1c", fg="white").pack(
+                side="left", padx=4
+            )
         tk.Button(
             actions, text="اعتباره غير موجود بالقاعدة", command=not_in_catalog, bg="#ef6c00", fg="white"
         ).pack(side="right", padx=4)
@@ -1185,7 +1183,6 @@ class InvoiceImporterApp(tk.Tk):
             self._switch_to_batch_index(self.batch_index + 1)
 
     def _populate_table(self):
-        self._hide_review_panel()
         self.tree_unmatched.delete(*self.tree_unmatched.get_children())
         self.tree_matched.delete(*self.tree_matched.get_children())
         unmatched_count = 0
@@ -1357,141 +1354,21 @@ class InvoiceImporterApp(tk.Tk):
         do_search()
 
     def _on_row_selected(self, event):
-        """وضع المراجعة بعد الاستخراج: تحديد صف "يحتاج مراجعة" يفتح لوحة
-        أقرب 3 مرشّحين تحت الجدول مباشرة - بدون نافذة منفصلة."""
+        """وضع المراجعة بعد الاستخراج: تحديد صف "يحتاج مراجعة" يفتح نافذة
+        منبثقة واضحة بأقرب مرشّحين مباشرة (نفس نافذة وضع "أثناء القراءة" -
+        _open_review_dialog - بدون زر "إلغاء المراجعة المتبقية" هنا، لأنه ما
+        فيه "طابور" مراجعة متتابع بهذا الوضع، مجرد صف واحد اختاره المستخدم).
+        قرار صريح من المستخدم (2026-08-26): كانت لوحة صغيرة تحت الجدول
+        تحتاج تمرير/بحث لتلاحظها - النافذة المنبثقة أوضح وأسرع."""
         tree: ttk.Treeview = event.widget
         selected = tree.selection()
         if not selected:
-            self._hide_review_panel()
             return
         idx = int(selected[0])
         line = self.lines[idx] if idx < len(self.lines) else None
         if line is None or not line.needs_review:
-            self._hide_review_panel()
             return
-        self._show_review_panel(idx, line)
-
-    def _show_review_panel(self, idx: int, line: ExtractedLine):
-        self._review_idx = idx
-        for child in self.review_suggestions_frame.winfo_children():
-            child.destroy()
-        for child in self.review_search_results_frame.winfo_children():
-            child.destroy()
-        self.review_search_entry.delete(0, "end")
-        self.review_ai_status_label.config(text="")
-
-        self.review_title_label.config(text=f"مراجعة: {line.description}")
-
-        def render_suggestions(candidates):
-            for child in self.review_suggestions_frame.winfo_children():
-                child.destroy()
-            if not candidates:
-                tk.Label(
-                    self.review_suggestions_frame, text="لا يوجد اقتراح مناسب - اختر يدوياً أو اعتبره غير موجود",
-                    bg="#fff8e1", anchor="e", justify="right",
-                ).pack(fill="x", pady=2)
-            for candidate in candidates:
-                row = tk.Frame(self.review_suggestions_frame, bg="#fff8e1")
-                row.pack(fill="x", pady=2)
-                tk.Button(
-                    row, text="اختر", command=lambda c=candidate: self._pick_review_candidate(c), bg="#1565c0", fg="white",
-                ).pack(side="left", padx=4)
-                tk.Label(
-                    row,
-                    text=f"{candidate.confidence:.0f}%  |  {candidate.item.code}  |  {candidate.item.name}  —  {candidate.reason}",
-                    bg="#fff8e1", anchor="e", justify="right",
-                ).pack(side="right", fill="x", expand=True)
-
-        # المحرك المحلي (suggest_candidates) سريع بدون شبكة - يبان فوراً،
-        # بدون أي تجميد. لو الحالة صعبة (راجع matching_engine.needs_semantic_rerank)،
-        # نحسّن الاقتراحات بخيط خلفية منفصل ونحدّث اللوحة لما يخلص، بدل ما
-        # نجمّد الواجهة بانتظار رد الذكاء الاصطناعي (قد يأخذ ثوانٍ)
-        local_candidates = matching_engine.suggest_candidates(
-            line, self.last_reference, supplier_name=self.invoice_supplier_name,
-            reference_attrs_index=self.reference_attrs_index, top_n=3,
-        )
-        render_suggestions(local_candidates)
-
-        if matching_engine.needs_semantic_rerank(local_candidates):
-            self.review_ai_status_label.config(text="🤖 جاري تحسين الاقتراحات بالذكاء الاصطناعي...")
-
-            def ai_worker():
-                enhanced, _ = matching_engine.semantic_enhance_candidates(
-                    line, self.last_reference, supplier_name=self.invoice_supplier_name,
-                    reference_attrs_index=self.reference_attrs_index, top_n=3,
-                )
-
-                def apply_result():
-                    # لو المستخدم انتقل لصف ثاني أو سكّر اللوحة قبل ما AI
-                    # يخلص، نتجاهل النتيجة القديمة بهدوء - ما نحدّث عرض صف
-                    # ما عاد هو المعروض حالياً
-                    if self._review_idx != idx or self.review_panel.winfo_manager() != "pack":
-                        return
-                    self.review_ai_status_label.config(text="")
-                    render_suggestions(enhanced)
-
-                self.after(0, apply_result)
-
-            threading.Thread(target=ai_worker, daemon=True).start()
-
-        self.review_panel.pack(fill="x", padx=8, pady=(0, 8), before=self._bottom_frame)
-
-    def _hide_review_panel(self):
-        self._review_idx = None
-        self.review_ai_status_label.config(text="")
-        self.review_panel.pack_forget()
-
-    def _pick_review_candidate(self, candidate):
-        if self._review_idx is None:
-            return
-        self._apply_review_pick(candidate.item)
-
-    def _on_review_search_typed(self, _event=None):
-        """بحث يدوي داخل لوحة المراجعة نفسها (بعد الاستخراج) - بالاسم أو
-        الباركود أو رقم الصنف، بدون نسبة تشابه (مو مؤشر ثقة زي الاقتراحات
-        الذكية، مجرد نتائج بحث بالنص المكتوب)."""
-        for child in self.review_search_results_frame.winfo_children():
-            child.destroy()
-        if self._review_idx is None:
-            return
-        query = self.review_search_entry.get()
-        for _score, item in _search_reference_items(self.last_reference, query, limit=5):
-            row = tk.Frame(self.review_search_results_frame, bg="#fff8e1")
-            row.pack(fill="x", pady=1)
-            tk.Button(
-                row, text="اختر", command=lambda it=item: self._apply_review_pick(it), bg="#00695c", fg="white",
-            ).pack(side="left", padx=4)
-            tk.Label(row, text=f"{item.code}  |  {item.name}", bg="#fff8e1", anchor="e", justify="right").pack(
-                side="right", fill="x", expand=True
-            )
-
-    def _apply_review_pick(self, item):
-        """يطبّق اختيار صنف (من اقتراح ذكي أو من نتيجة بحث يدوي) على السطر
-        قيد المراجعة حالياً - نفس دالة التعديل الآمنة اللي يستخدمها التعديل
-        اليدوي بالضبط، صفر منطق مكرر، وتغذّي جدول التعلّم تلقائياً لأن هذا
-        تأكيد بشري صريح. يعرض تأكيد واضح بشريط الحالة عشان ما يبان للمستخدم
-        إن الضغط ما أثّر (الصف فعلياً بينتقل لقسم "أصناف مطابَقة")."""
-        if self._review_idx is None:
-            return
-        idx = self._review_idx
-        self._apply_edit_to_model(idx, "code", item.code)
-        line = self.lines[idx] if idx < len(self.lines) else None
-        if line is not None:
-            line.needs_review = False
-        self._hide_review_panel()
-        self.status_label.config(
-            text=f"✓ تم اختيار: {item.name} (رقم الصنف {item.code}) - انتقل الصف لقسم \"أصناف مطابَقة\""
-        )
-
-    def _mark_selected_not_in_catalog(self):
-        if self._review_idx is None:
-            return
-        line = self.lines[self._review_idx] if self._review_idx < len(self.lines) else None
-        if line is not None:
-            line.confirmed_not_in_catalog = True
-            line.needs_review = False
-        self._hide_review_panel()
-        self._populate_table()
+        self._open_review_dialog(idx, line, show_cancel_button=False)
 
     def _on_cell_double_click(self, event):
         """يسمح بتعديل قيمة أي خلية يدوياً. لعمودي رقم الصنف واسم الصنف

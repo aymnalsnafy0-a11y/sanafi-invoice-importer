@@ -1,10 +1,12 @@
 """
 اختبار: نداء إعادة الترتيب الدلالي (matching_engine.semantic_enhance_candidates)
-من نافذتي المراجعة (_show_review_panel بعد الاستخراج، و_open_review_dialog
-أثناء القراءة) يشتغل فعلياً بخيط خلفية منفصل - مو الخيط الرئيسي/Tk - وما
-يجمّد الواجهة أثناء انتظاره. نموّه semantic_enhance_candidates بتأخير
-مصطنع (يحاكي بطء شبكة حقيقي) ونتأكد mainloop يقدر يكمل يعالج أحداث أثناء
-هذا التأخير - صفر اتصال إنترنت حقيقي أو تكلفة فعلية بهذا الاختبار.
+من نافذة المراجعة المنبثقة (_open_review_dialog - تُستخدم الحين لكل من وضع
+"أثناء القراءة" ووضع "بعد الاستخراج" بعد استبدال اللوحة الصغيرة القديمة
+بنافذة منبثقة موحّدة، راجع test_after_extraction_review_panel.py للتفصيل)
+يشتغل فعلياً بخيط خلفية منفصل - مو الخيط الرئيسي/Tk - وما يجمّد الواجهة
+أثناء انتظاره. نموّه semantic_enhance_candidates بتأخير مصطنع (يحاكي بطء
+شبكة حقيقي) ونتأكد mainloop يقدر يكمل يعالج أحداث أثناء هذا التأخير - صفر
+اتصال إنترنت حقيقي أو تكلفة فعلية بهذا الاختبار.
 """
 
 import io
@@ -16,6 +18,7 @@ import tkinter as tk
 from pathlib import Path
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+sys.stdout.reconfigure(line_buffering=True)
 sys.path.insert(0, r"D:\scanar\invoice_importer")
 
 results = []
@@ -38,6 +41,7 @@ import matching_engine
 import semantic_matcher
 
 semantic_matcher.rerank = lambda *a, **k: None  # احتياط إضافي - غير مستخدم مباشرة هنا لكن نفس عادة بقية الاختبارات
+app.InvoiceImporterApp._refresh_items_from_db = lambda self: None  # راجع الملاحظة بـtest_after_extraction_review_panel.py
 from items import ReferenceItem
 from line_item import ExtractedLine
 
@@ -65,66 +69,6 @@ def make_recording_enhancer(call_info, local_candidates):
     return fake_enhance
 
 
-def run_under_real_mainloop(setup_fn, total_wait=1.5):
-    """يشغّل setup_fn() على الخيط الرئيسي (تفتح النافذة/اللوحة وتُطلق خيط
-    AI بالخلفية زي الحين الفعلي)، وبينما mainloop شغّال، نعدّ Tick بعداد
-    مستقل عبر after() المتكرر - لو العداد يتحرّك أثناء نوم خيط AI المصطنع،
-    هذا دليل عملي إن mainloop لم يتجمّد."""
-    tick_count = {"n": 0}
-
-    def tick():
-        tick_count["n"] += 1
-        a.after(20, tick)
-
-    def start():
-        setup_fn()
-        a.after(20, tick)
-        a.after(int((_AI_DELAY + 1.0) * 1000), a.quit)  # يقفل mainloop بعد ما يكفي وقت لخيط AI يخلص
-
-    a.after(10, start)
-    safety_id = a.after(10000, a.quit)
-    a.mainloop()
-    a.after_cancel(safety_id)
-    return tick_count["n"]
-
-
-print("--- 1) _show_review_panel (بعد الاستخراج): AI يشتغل بخيط خلفية، ما يجمّد mainloop ---")
-line1 = ExtractedLine(raw_text="x", description="حليب سائل كامل الدسم عبوة كبيرة", quantity=1, unit_price=8, total=8, ocr_confidence=100, needs_review=True)
-a.lines = [line1]
-a._populate_table()
-
-call_info1 = {"called": False}
-local_candidates1 = matching_engine.suggest_candidates(line1, reference, reference_attrs_index=a.reference_attrs_index, top_n=3)
-matching_engine.needs_semantic_rerank = lambda candidates: True  # نجبر مسار AI يشتغل بغض النظر عن ثقة المرشّحين الفعلية
-matching_engine.semantic_enhance_candidates = make_recording_enhancer(call_info1, local_candidates1)
-
-
-def open_panel():
-    a.tree_unmatched.selection_set("0")
-    a.tree_unmatched.event_generate("<<TreeviewSelect>>")
-
-
-ticks1 = run_under_real_mainloop(open_panel)
-
-check("طبقة AI استُدعيت فعلاً", call_info1.get("called") is True)
-check("REAL SAFETY: الاستدعاء صار من خيط خلفية منفصل، مو الخيط الرئيسي/Tk", call_info1.get("is_main_thread") is False)
-check("REAL SAFETY: mainloop استمر بمعالجة الأحداث أثناء تأخير AI (ما تجمّد) - tick تحرّك عدة مرات", ticks1 >= 3)
-
-a._hide_review_panel()
-
-
-print("\n--- 2) _open_review_dialog (أثناء القراءة): نفس الشيء - AI بخيط خلفية بدون تجميد النافذة المشروطة ---")
-# _open_review_dialog تستخدم wait_window() داخلياً (نفس نمط
-# test_during_reading_review.py) - يعني حلقة أحداث Tk محلية تشتغل تلقائياً
-# فور استدعائها مباشرة من الخيط الرئيسي، بدون حاجة لـmainloop()/خيط منفصل
-# هنا بالاختبار نفسه.
-line2 = ExtractedLine(raw_text="x", description="حليب سائل كامل الدسم عبوة كبيرة", quantity=1, unit_price=8, total=8, ocr_confidence=100, needs_review=True)
-
-call_info2 = {"called": False}
-local_candidates2 = matching_engine.suggest_candidates(line2, reference, reference_attrs_index=a.reference_attrs_index, top_n=3)
-matching_engine.semantic_enhance_candidates = make_recording_enhancer(call_info2, local_candidates2)
-
-
 def find_all(widget):
     out = [widget]
     for child in widget.winfo_children():
@@ -145,6 +89,61 @@ def close_via_skip():
     skip_btn.invoke()
 
 
+print("--- 1) الضغط على صف بجدول 'أصناف غير موجودة' (بعد الاستخراج): يفتح النافذة المنبثقة، AI بخيط خلفية بدون تجميد mainloop ---")
+# نستدعي _on_row_selected مباشرة بحدث مموّه (widget=tree_unmatched) بدل
+# event_generate - راجع الملاحظة التقنية أعلى test_after_extraction_review_panel.py:
+# event_generate("<<TreeviewSelect>>") يسبب تجمّد حقيقي هنا (خاصية داخلية
+# Tcl/Tk)، بينما النداء المباشر لنفس معالج الحدث يشتغل تمام دائماً - نفس
+# الكود الحقيقي يُستدعى فعلياً، الفرق فقط بآلية التشغيل، مو بالسلوك المُختبَر.
+line1 = ExtractedLine(raw_text="x", description="حليب سائل كامل الدسم عبوة كبيرة", quantity=1, unit_price=8, total=8, ocr_confidence=100, needs_review=True)
+a.lines = [line1]
+a._populate_table()
+
+call_info1 = {"called": False}
+local_candidates1 = matching_engine.suggest_candidates(line1, reference, reference_attrs_index=a.reference_attrs_index, top_n=3)
+matching_engine.needs_semantic_rerank = lambda candidates: True  # نجبر مسار AI يشتغل بغض النظر عن ثقة المرشّحين الفعلية
+matching_engine.semantic_enhance_candidates = make_recording_enhancer(call_info1, local_candidates1)
+
+tick_count1 = {"n": 0}
+
+
+def tick1():
+    tick_count1["n"] += 1
+    a.after(20, tick1)
+
+
+class _FakeEvent:
+    def __init__(self, widget):
+        self.widget = widget
+
+
+# selection_set() نفسها تُطلق <<TreeviewSelect>> تلقائياً (نفس خاصية
+# event_generate الحقيقية بالضبط) - نفكّ الربط مؤقتاً عشان نتحكم بنداء واحد
+# فقط (المباشر أدناه)، بدل نداءين متزامنين لنفس الحدث
+a.tree_unmatched.unbind("<<TreeviewSelect>>")
+a.tree_unmatched.selection_set("0")
+a.after(20, tick1)
+a.after(int((_AI_DELAY + 0.3) * 1000), close_via_skip)
+a._on_row_selected(_FakeEvent(a.tree_unmatched))
+
+check("طبقة AI استُدعيت فعلاً", call_info1.get("called") is True)
+check("REAL SAFETY: الاستدعاء صار من خيط خلفية منفصل، مو الخيط الرئيسي/Tk", call_info1.get("is_main_thread") is False)
+check("REAL SAFETY: mainloop استمر بمعالجة الأحداث أثناء تأخير AI (ما تجمّد) - tick تحرّك عدة مرات", tick_count1["n"] >= 3)
+
+
+print("\n--- 2) _open_review_dialog (أثناء القراءة - نداء مباشر): نفس الشيء - AI بخيط خلفية بدون تجميد النافذة ---")
+# نداء مباشر (نفس نمط test_during_reading_review.py المُثبَت) - wait_window()
+# تشتغل تلقائياً فور استدعائها مباشرة من الخيط الرئيسي، بدون حاجة لـmainloop()
+# منفصل هنا. ملاحظة تقنية مهمة (راجع test_after_extraction_review_panel.py):
+# هذا القسم يجي *بعد* القسم الأول عمداً - خلط event_generate بنداء مباشر
+# لاحق بنفس نسخة التطبيق يسبب تجمّد حقيقي؛ الترتيب هنا (mainloop حقيقي أولاً
+# بالقسم 1، ثم نداء مباشر بالقسم 2) مُثبَت أنه آمن.
+line2 = ExtractedLine(raw_text="x", description="حليب سائل كامل الدسم عبوة كبيرة", quantity=1, unit_price=8, total=8, ocr_confidence=100, needs_review=True)
+
+call_info2 = {"called": False}
+local_candidates2 = matching_engine.suggest_candidates(line2, reference, reference_attrs_index=a.reference_attrs_index, top_n=3)
+matching_engine.semantic_enhance_candidates = make_recording_enhancer(call_info2, local_candidates2)
+
 tick_count2 = {"n": 0}
 
 
@@ -157,10 +156,10 @@ a.after(20, tick2)
 a.after(int((_AI_DELAY + 0.3) * 1000), close_via_skip)
 action2 = a._open_review_dialog(0, line2)
 
-check("النافذة المشروطة (_open_review_dialog) طبقة AI استُدعيت فعلاً", call_info2.get("called") is True)
-check("REAL SAFETY: نفس الشيء بالنافذة المشروطة - الاستدعاء من خيط خلفية، مو الرئيسي", call_info2.get("is_main_thread") is False)
-check("REAL SAFETY: mainloop استمر يعالج أحداث (tick تحرّك) أثناء AI بالنافذة المشروطة", tick_count2["n"] >= 3)
-check("الحوار المشروط أُغلق بنجاح (لم يتجمّد للأبد)", action2 == "skip")
+check("النافذة (نداء مباشر) طبقة AI استُدعيت فعلاً", call_info2.get("called") is True)
+check("REAL SAFETY: نفس الشيء بالنداء المباشر - الاستدعاء من خيط خلفية، مو الرئيسي", call_info2.get("is_main_thread") is False)
+check("REAL SAFETY: mainloop استمر يعالج أحداث (tick تحرّك) أثناء AI بالنافذة", tick_count2["n"] >= 3)
+check("النافذة أُغلقت بنجاح (لم تتجمّد للأبد)", action2 == "skip")
 
 a.destroy()
 
