@@ -1,0 +1,663 @@
+<?xml version="1.0" standalone="yes"?>
+<NewDataSet>
+  <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+      <xs:complexType>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="CLASSES">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="CLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="COIN_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_NO" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_ARNAME" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_ENNAME" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_TYPE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IMG_PATH" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_CONTRY" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_COMPANY" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_NOTA" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_IS_SUM" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_INC1" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_INC2" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_INC3" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_INC4" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_STATE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_COLOR" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_CATOGRY" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_SIZE" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_PRICE_POLICE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_DES_LOCALVALUE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_DIS_PRESINT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_DIS_FORIGNVALUE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_EQ" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_MAX_LIMIT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_LIMIT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_MIN_LIMIT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_GIVT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_GIVT_NO" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_UN_1" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_UN_2" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_UN_3" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_IS_DEF" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_UN_1_PCODE" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_UN_2_PCODE" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_UN_3_PCODE" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_UN_2_TRANS" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_UN_3_TRANS" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_STOP_CACASE" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_SECIRTY" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CUS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_PRES" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_DATAE_PR" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_DATAE_EX" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_DATAE_EX_IN" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_DATAE_EX_OUT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_NO_SQ" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_NO_SQ_IN" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_NO_SQ_OUT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_UN_4" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_UN_5" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_UN_6" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_UN_4_PCODE" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_UN_5_PCODE" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_UN_6_PCODE" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_UN_4_TRANS" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_UN_5_TRANS" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_UN_6_TRANS" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_COMM" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_COMM_P" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_FIFO" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_LIFO" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GR_CH_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_LEN" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_WID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_HIG" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_PATCH_NO" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_CASH" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_NO_FREE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_NO_RETURN" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_DAY_RETURN" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_UN_DEF_1" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CE_ID_1" type="xs:decimal" minOccurs="0" />
+                <xs:element name="SM_ID_1" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_COLOR" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_SIZE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_ID_N" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ORD_PUR" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_COST_GROUP" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_TAX" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_TAX_P" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_COUNT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_TAX_ADD_VAL" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_NO_VND" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_USED_SUPP" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_G_PRICE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_MINUTE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_PRINT_BARCODE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_INI_NO" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_SAL_WITH_TAX" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_NO_COST" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_SALES_TAX" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_NO_SAL_UN_1" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_TAX_2" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_TAX_P_2" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_PRICE_MODIFY" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_AMANSTORE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_FREE_CLS_COUNT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_STATE_REST" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_QTY" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_COST_YEAR_AVG" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_COST_ACT_AVG" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_MAX_PUR" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_LAST_PUR" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_COST_FIFO" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_COST_LIFO" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ALLOW_SALEB" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ACTIVE_GTIN" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_PRESCRIPTION" type="xs:decimal" minOccurs="0" />
+                <xs:element name="SP_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="RES_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GTIN" type="xs:string" minOccurs="0" />
+                <xs:element name="GUID_POINT_ADD" type="xs:string" minOccurs="0" />
+                <xs:element name="DV_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ADD_UN_1" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ADD_UN_1_P" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_SAL_PRIC_PUR_ADD_UN_1" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ZATCA_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="LAST_UPDATE" type="xs:dateTime" minOccurs="0" />
+                <xs:element name="CLS_COST_2" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GC_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_PUR_PRIC_GOLD" type="xs:decimal" minOccurs="0" />
+                <xs:element name="IS_DONE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_ID_N_3" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_ID_N_4" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_ID_N_5" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IMG" type="xs:base64Binary" minOccurs="0" />
+                <xs:element name="CLS_ID_ADD" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_FOUND" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ARNAME_MOD" type="xs:string" minOccurs="0" />
+                <xs:element name="GR_NAME" type="xs:string" minOccurs="0" />
+                <xs:element name="GR_NAME_2" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_NO" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_AR_NAME" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_ENNAME" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_NO_2" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_AR_NAME_2" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_ENNAME_2" type="xs:string" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="CLS_PRICE">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="CP_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CP_DATE" type="xs:dateTime" minOccurs="0" />
+                <xs:element name="CP_CLS_UN_1" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CP_CLS_UN_2" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CP_CLS_UN_3" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CP_CLS_UN_4" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CP_CLS_UN_5" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CP_CLS_UN_6" type="xs:decimal" minOccurs="0" />
+                <xs:element name="PRIC_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="LAST_UPDATE" type="xs:dateTime" minOccurs="0" />
+                <xs:element name="CLS_ID_ADD" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_FOUND" type="xs:decimal" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="CLASS_IMAG">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="CLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLSI_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLSI_IMG_PATH" type="xs:string" minOccurs="0" />
+                <xs:element name="CP_WHOL_UN_1" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CP_WHOL_UN_2" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CP_WHOL_UN_3" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CP_WHOL_UN_4" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CP_WHOL_UN_5" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CP_WHOL_UN_6" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLSI_IMG" type="xs:base64Binary" minOccurs="0" />
+                <xs:element name="CLS_ID_ADD" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_FOUND" type="xs:decimal" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="CLS_FREE">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="CF_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLA_CLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CF_QLT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_UN" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CF_COST" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CF_COUNT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CF_VAL" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ID_ADD" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ID_ADD_2" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_FOUND" type="xs:decimal" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="CLS_SUM">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="CS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLA_CLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CS_QLT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_UN" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CS_COST" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CS_COUNT" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ID_ADD" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ID_ADD_2" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_FOUND" type="xs:decimal" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="CLS_UNIT_BARCODE">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="CLS_BAR_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="UN_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="UN_BARCODE_NO" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_BAR_PRICE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_BAR_COLOR" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_BAR_SIZE" type="xs:string" minOccurs="0" />
+                <xs:element name="CUS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_BAR_IS_DEF" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ID_ADD" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_FOUND" type="xs:decimal" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="CLS_SINC_DT">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="CSD_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CSD_NOTE" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_ID_ADD" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_FOUND" type="xs:decimal" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="CLS_SINC_M">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="CS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CS_NO" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CS_ARNAME" type="xs:string" minOccurs="0" />
+                <xs:element name="CS_ENNAME" type="xs:string" minOccurs="0" />
+                <xs:element name="CS_CONC" type="xs:string" minOccurs="0" />
+                <xs:element name="CS_FORMULA" type="xs:string" minOccurs="0" />
+                <xs:element name="CS_PREC" type="xs:string" minOccurs="0" />
+                <xs:element name="CS_NOTE" type="xs:string" minOccurs="0" />
+                <xs:element name="CS_STATE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CS_STOP_CAUSE" type="xs:string" minOccurs="0" />
+                <xs:element name="LAST_UPDATE" type="xs:dateTime" minOccurs="0" />
+                <xs:element name="CLS_ID_ADD" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_FOUND" type="xs:decimal" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="GROUP_CLASS">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="GCLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_FATHER_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_NO" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_AR_NAME" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_ENNAME" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_NOTA" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_STATE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_STOR_ALL" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_STOP_CACASE" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_PRICE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_PRICE_2" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_PRICE_3" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_CLS_PRICE_1" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_CLS_PRICE_2" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_CLS_PRICE_3" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_CLS_PRICE_4" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_CLS_PRICE_5" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_CLS_PRICE_6" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_CLS_PRICE_7" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_CLS_PRICE_8" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_FINAL" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_IS_AMANSTORE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="LAST_UPDATE" type="xs:dateTime" minOccurs="0" />
+                <xs:element name="DV_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GUID_POINT_ADD" type="xs:string" minOccurs="0" />
+                <xs:element name="IS_DONE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_ID_ADD" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_ID_ADD_2" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_FOUND" type="xs:decimal" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="GROUP_CLASS_2">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="GCLS_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_FATHER_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_NO" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_AR_NAME" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_ENNAME" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_NOTA" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_STATE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_STOR_ALL" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_STOP_CACASE" type="xs:string" minOccurs="0" />
+                <xs:element name="GCLS_PRICE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_FINAL" type="xs:decimal" minOccurs="0" />
+                <xs:element name="LAST_UPDATE" type="xs:dateTime" minOccurs="0" />
+                <xs:element name="DV_ID" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GUID_POINT_ADD" type="xs:string" minOccurs="0" />
+                <xs:element name="IS_DONE" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_ID_ADD" type="xs:decimal" minOccurs="0" />
+                <xs:element name="GCLS_ID_ADD_2" type="xs:decimal" minOccurs="0" />
+                <xs:element name="CLS_IS_FOUND" type="xs:decimal" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+      </xs:complexType>
+    </xs:element>
+  </xs:schema>
+  <CLASSES>
+    <CLS_ID>43</CLS_ID>
+    <GCLS_ID>1</GCLS_ID>
+    <COIN_ID>1</COIN_ID>
+    <CLS_NO>1001</CLS_NO>
+    <CLS_ARNAME>1</CLS_ARNAME>
+    <CLS_TYPE>0</CLS_TYPE>
+    <CLS_IS_SUM>0</CLS_IS_SUM>
+    <CLS_STATE>0</CLS_STATE>
+    <CLS_PRICE_POLICE>0</CLS_PRICE_POLICE>
+    <CLS_EQ>1</CLS_EQ>
+    <CLS_UN_1>حبة</CLS_UN_1>
+    <CLS_IS_DEF>1</CLS_IS_DEF>
+    <CLS_SECIRTY>1</CLS_SECIRTY>
+    <CLS_IS_PRES>0</CLS_IS_PRES>
+    <CLS_IS_DATAE_PR>0</CLS_IS_DATAE_PR>
+    <CLS_IS_DATAE_EX>0</CLS_IS_DATAE_EX>
+    <CLS_IS_DATAE_EX_IN>0</CLS_IS_DATAE_EX_IN>
+    <CLS_IS_DATAE_EX_OUT>0</CLS_IS_DATAE_EX_OUT>
+    <CLS_IS_NO_SQ>0</CLS_IS_NO_SQ>
+    <CLS_IS_NO_SQ_IN>0</CLS_IS_NO_SQ_IN>
+    <CLS_IS_NO_SQ_OUT>0</CLS_IS_NO_SQ_OUT>
+    <CLS_FIFO>0</CLS_FIFO>
+    <CLS_LIFO>0</CLS_LIFO>
+    <CLS_LEN>1</CLS_LEN>
+    <CLS_WID>1</CLS_WID>
+    <CLS_HIG>1</CLS_HIG>
+    <CLS_PATCH_NO>0</CLS_PATCH_NO>
+    <CLS_IS_CASH>0</CLS_IS_CASH>
+    <CLS_NO_FREE>0</CLS_NO_FREE>
+    <CLS_NO_RETURN>0</CLS_NO_RETURN>
+    <CLS_UN_DEF_1>0</CLS_UN_DEF_1>
+    <CLS_IS_COLOR>0</CLS_IS_COLOR>
+    <CLS_IS_SIZE>0</CLS_IS_SIZE>
+    <CLS_ORD_PUR>0</CLS_ORD_PUR>
+    <CLS_COST_GROUP>0</CLS_COST_GROUP>
+    <CLS_TAX>5</CLS_TAX>
+    <CLS_TAX_P>5</CLS_TAX_P>
+    <CLS_IS_COUNT>0</CLS_IS_COUNT>
+    <CLS_IS_TAX_ADD_VAL>0</CLS_IS_TAX_ADD_VAL>
+    <CLS_USED_SUPP>0</CLS_USED_SUPP>
+    <CLS_G_PRICE>0</CLS_G_PRICE>
+    <CLS_IS_PRINT_BARCODE>0</CLS_IS_PRINT_BARCODE>
+    <CLS_SAL_WITH_TAX>0</CLS_SAL_WITH_TAX>
+    <CLS_NO_COST>0</CLS_NO_COST>
+    <CLS_NO_SAL_UN_1>0</CLS_NO_SAL_UN_1>
+    <CLS_TAX_2>15</CLS_TAX_2>
+    <CLS_TAX_P_2>15</CLS_TAX_P_2>
+    <CLS_PRICE_MODIFY>0</CLS_PRICE_MODIFY>
+    <CLS_IS_AMANSTORE>0</CLS_IS_AMANSTORE>
+    <CLS_FREE_CLS_COUNT>0</CLS_FREE_CLS_COUNT>
+    <CLS_STATE_REST>0</CLS_STATE_REST>
+    <CLS_COST_YEAR_AVG>0</CLS_COST_YEAR_AVG>
+    <CLS_COST_ACT_AVG>0</CLS_COST_ACT_AVG>
+    <CLS_MAX_PUR>0</CLS_MAX_PUR>
+    <CLS_LAST_PUR>0</CLS_LAST_PUR>
+    <CLS_COST_FIFO>0</CLS_COST_FIFO>
+    <CLS_COST_LIFO>0</CLS_COST_LIFO>
+    <CLS_ALLOW_SALEB>0</CLS_ALLOW_SALEB>
+    <CLS_ACTIVE_GTIN>0</CLS_ACTIVE_GTIN>
+    <CLS_PRESCRIPTION>0</CLS_PRESCRIPTION>
+    <CLS_SAL_PRIC_PUR_ADD_UN_1>0</CLS_SAL_PRIC_PUR_ADD_UN_1>
+    <LAST_UPDATE>2026-08-03T11:55:56+03:00</LAST_UPDATE>
+    <CLS_COST_2>0</CLS_COST_2>
+    <CLS_PUR_PRIC_GOLD>0</CLS_PUR_PRIC_GOLD>
+    <IS_DONE>1</IS_DONE>
+    <CLS_ID_ADD>0</CLS_ID_ADD>
+    <CLS_IS_FOUND>0</CLS_IS_FOUND>
+    <CLS_ARNAME_MOD>1</CLS_ARNAME_MOD>
+    <GR_NAME>1-مجموعة الاصناف</GR_NAME>
+    <GCLS_NO>1</GCLS_NO>
+    <GCLS_AR_NAME>مجموعة الاصناف</GCLS_AR_NAME>
+    <GCLS_ENNAME>Items Gruop</GCLS_ENNAME>
+  </CLASSES>
+  <CLASSES>
+    <CLS_ID>63</CLS_ID>
+    <GCLS_ID>1</GCLS_ID>
+    <COIN_ID>1</COIN_ID>
+    <CLS_NO>1002</CLS_NO>
+    <CLS_ARNAME>صنف تجميعي</CLS_ARNAME>
+    <CLS_TYPE>0</CLS_TYPE>
+    <CLS_IS_SUM>0</CLS_IS_SUM>
+    <CLS_STATE>0</CLS_STATE>
+    <CLS_PRICE_POLICE>0</CLS_PRICE_POLICE>
+    <CLS_EQ>1</CLS_EQ>
+    <CLS_UN_1>حبة</CLS_UN_1>
+    <CLS_IS_DEF>1</CLS_IS_DEF>
+    <CLS_UN_1_PCODE>2131231231</CLS_UN_1_PCODE>
+    <CLS_SECIRTY>1</CLS_SECIRTY>
+    <CLS_IS_PRES>0</CLS_IS_PRES>
+    <CLS_IS_DATAE_PR>0</CLS_IS_DATAE_PR>
+    <CLS_IS_DATAE_EX>0</CLS_IS_DATAE_EX>
+    <CLS_IS_DATAE_EX_IN>0</CLS_IS_DATAE_EX_IN>
+    <CLS_IS_DATAE_EX_OUT>0</CLS_IS_DATAE_EX_OUT>
+    <CLS_IS_NO_SQ>0</CLS_IS_NO_SQ>
+    <CLS_IS_NO_SQ_IN>0</CLS_IS_NO_SQ_IN>
+    <CLS_IS_NO_SQ_OUT>0</CLS_IS_NO_SQ_OUT>
+    <CLS_FIFO>0</CLS_FIFO>
+    <CLS_LIFO>0</CLS_LIFO>
+    <CLS_LEN>1</CLS_LEN>
+    <CLS_WID>1</CLS_WID>
+    <CLS_HIG>1</CLS_HIG>
+    <CLS_PATCH_NO>0</CLS_PATCH_NO>
+    <CLS_IS_CASH>0</CLS_IS_CASH>
+    <CLS_NO_FREE>0</CLS_NO_FREE>
+    <CLS_NO_RETURN>0</CLS_NO_RETURN>
+    <CLS_UN_DEF_1>0</CLS_UN_DEF_1>
+    <CLS_IS_COLOR>0</CLS_IS_COLOR>
+    <CLS_IS_SIZE>0</CLS_IS_SIZE>
+    <CLS_ORD_PUR>0</CLS_ORD_PUR>
+    <CLS_COST_GROUP>0</CLS_COST_GROUP>
+    <CLS_TAX>5</CLS_TAX>
+    <CLS_TAX_P>5</CLS_TAX_P>
+    <CLS_IS_COUNT>0</CLS_IS_COUNT>
+    <CLS_IS_TAX_ADD_VAL>0</CLS_IS_TAX_ADD_VAL>
+    <CLS_USED_SUPP>0</CLS_USED_SUPP>
+    <CLS_G_PRICE>0</CLS_G_PRICE>
+    <CLS_IS_PRINT_BARCODE>0</CLS_IS_PRINT_BARCODE>
+    <CLS_SAL_WITH_TAX>0</CLS_SAL_WITH_TAX>
+    <CLS_NO_COST>0</CLS_NO_COST>
+    <CLS_NO_SAL_UN_1>0</CLS_NO_SAL_UN_1>
+    <CLS_TAX_2>15</CLS_TAX_2>
+    <CLS_TAX_P_2>15</CLS_TAX_P_2>
+    <CLS_PRICE_MODIFY>0</CLS_PRICE_MODIFY>
+    <CLS_IS_AMANSTORE>0</CLS_IS_AMANSTORE>
+    <CLS_FREE_CLS_COUNT>0</CLS_FREE_CLS_COUNT>
+    <CLS_STATE_REST>0</CLS_STATE_REST>
+    <CLS_COST_YEAR_AVG>0</CLS_COST_YEAR_AVG>
+    <CLS_COST_ACT_AVG>0</CLS_COST_ACT_AVG>
+    <CLS_MAX_PUR>0</CLS_MAX_PUR>
+    <CLS_LAST_PUR>0</CLS_LAST_PUR>
+    <CLS_COST_FIFO>0</CLS_COST_FIFO>
+    <CLS_COST_LIFO>0</CLS_COST_LIFO>
+    <CLS_ALLOW_SALEB>0</CLS_ALLOW_SALEB>
+    <CLS_ACTIVE_GTIN>0</CLS_ACTIVE_GTIN>
+    <CLS_PRESCRIPTION>0</CLS_PRESCRIPTION>
+    <CLS_SAL_PRIC_PUR_ADD_UN_1>0</CLS_SAL_PRIC_PUR_ADD_UN_1>
+    <LAST_UPDATE>2026-08-21T03:38:57+03:00</LAST_UPDATE>
+    <CLS_COST_2>0</CLS_COST_2>
+    <CLS_PUR_PRIC_GOLD>0</CLS_PUR_PRIC_GOLD>
+    <IS_DONE>1</IS_DONE>
+    <CLS_ID_ADD>0</CLS_ID_ADD>
+    <CLS_IS_FOUND>0</CLS_IS_FOUND>
+    <CLS_ARNAME_MOD>صنف تجميعي</CLS_ARNAME_MOD>
+    <GR_NAME>1-مجموعة الاصناف</GR_NAME>
+    <GCLS_NO>1</GCLS_NO>
+    <GCLS_AR_NAME>مجموعة الاصناف</GCLS_AR_NAME>
+    <GCLS_ENNAME>Items Gruop</GCLS_ENNAME>
+  </CLASSES>
+  <CLASSES>
+    <CLS_ID>64</CLS_ID>
+    <GCLS_ID>1</GCLS_ID>
+    <COIN_ID>1</COIN_ID>
+    <CLS_NO>1003</CLS_NO>
+    <CLS_ARNAME>lcgbywbc</CLS_ARNAME>
+    <CLS_TYPE>0</CLS_TYPE>
+    <CLS_IS_SUM>0</CLS_IS_SUM>
+    <CLS_STATE>0</CLS_STATE>
+    <CLS_PRICE_POLICE>0</CLS_PRICE_POLICE>
+    <CLS_EQ>1</CLS_EQ>
+    <CLS_UN_1>حبة</CLS_UN_1>
+    <CLS_IS_DEF>1</CLS_IS_DEF>
+    <CLS_UN_1_PCODE>33333333333333</CLS_UN_1_PCODE>
+    <CLS_SECIRTY>1</CLS_SECIRTY>
+    <CLS_IS_PRES>0</CLS_IS_PRES>
+    <CLS_IS_DATAE_PR>0</CLS_IS_DATAE_PR>
+    <CLS_IS_DATAE_EX>0</CLS_IS_DATAE_EX>
+    <CLS_IS_DATAE_EX_IN>0</CLS_IS_DATAE_EX_IN>
+    <CLS_IS_DATAE_EX_OUT>0</CLS_IS_DATAE_EX_OUT>
+    <CLS_IS_NO_SQ>0</CLS_IS_NO_SQ>
+    <CLS_IS_NO_SQ_IN>0</CLS_IS_NO_SQ_IN>
+    <CLS_IS_NO_SQ_OUT>0</CLS_IS_NO_SQ_OUT>
+    <CLS_FIFO>0</CLS_FIFO>
+    <CLS_LIFO>0</CLS_LIFO>
+    <CLS_LEN>1</CLS_LEN>
+    <CLS_WID>1</CLS_WID>
+    <CLS_HIG>1</CLS_HIG>
+    <CLS_PATCH_NO>0</CLS_PATCH_NO>
+    <CLS_IS_CASH>0</CLS_IS_CASH>
+    <CLS_NO_FREE>0</CLS_NO_FREE>
+    <CLS_NO_RETURN>0</CLS_NO_RETURN>
+    <CLS_UN_DEF_1>0</CLS_UN_DEF_1>
+    <CLS_IS_COLOR>0</CLS_IS_COLOR>
+    <CLS_IS_SIZE>0</CLS_IS_SIZE>
+    <CLS_ORD_PUR>0</CLS_ORD_PUR>
+    <CLS_COST_GROUP>0</CLS_COST_GROUP>
+    <CLS_TAX>5</CLS_TAX>
+    <CLS_TAX_P>5</CLS_TAX_P>
+    <CLS_IS_COUNT>0</CLS_IS_COUNT>
+    <CLS_IS_TAX_ADD_VAL>0</CLS_IS_TAX_ADD_VAL>
+    <CLS_USED_SUPP>0</CLS_USED_SUPP>
+    <CLS_G_PRICE>0</CLS_G_PRICE>
+    <CLS_IS_PRINT_BARCODE>0</CLS_IS_PRINT_BARCODE>
+    <CLS_SAL_WITH_TAX>0</CLS_SAL_WITH_TAX>
+    <CLS_NO_COST>0</CLS_NO_COST>
+    <CLS_NO_SAL_UN_1>0</CLS_NO_SAL_UN_1>
+    <CLS_TAX_2>15</CLS_TAX_2>
+    <CLS_TAX_P_2>15</CLS_TAX_P_2>
+    <CLS_PRICE_MODIFY>0</CLS_PRICE_MODIFY>
+    <CLS_IS_AMANSTORE>0</CLS_IS_AMANSTORE>
+    <CLS_FREE_CLS_COUNT>0</CLS_FREE_CLS_COUNT>
+    <CLS_STATE_REST>0</CLS_STATE_REST>
+    <CLS_COST_YEAR_AVG>0</CLS_COST_YEAR_AVG>
+    <CLS_COST_ACT_AVG>0</CLS_COST_ACT_AVG>
+    <CLS_MAX_PUR>0</CLS_MAX_PUR>
+    <CLS_LAST_PUR>0</CLS_LAST_PUR>
+    <CLS_COST_FIFO>0</CLS_COST_FIFO>
+    <CLS_COST_LIFO>0</CLS_COST_LIFO>
+    <CLS_ALLOW_SALEB>0</CLS_ALLOW_SALEB>
+    <CLS_ACTIVE_GTIN>0</CLS_ACTIVE_GTIN>
+    <CLS_PRESCRIPTION>0</CLS_PRESCRIPTION>
+    <CLS_SAL_PRIC_PUR_ADD_UN_1>0</CLS_SAL_PRIC_PUR_ADD_UN_1>
+    <LAST_UPDATE>2026-08-21T03:39:27+03:00</LAST_UPDATE>
+    <CLS_COST_2>0</CLS_COST_2>
+    <CLS_PUR_PRIC_GOLD>0</CLS_PUR_PRIC_GOLD>
+    <IS_DONE>1</IS_DONE>
+    <CLS_ID_ADD>0</CLS_ID_ADD>
+    <CLS_IS_FOUND>0</CLS_IS_FOUND>
+    <CLS_ARNAME_MOD>lcgbywbc</CLS_ARNAME_MOD>
+    <GR_NAME>1-مجموعة الاصناف</GR_NAME>
+    <GCLS_NO>1</GCLS_NO>
+    <GCLS_AR_NAME>مجموعة الاصناف</GCLS_AR_NAME>
+    <GCLS_ENNAME>Items Gruop</GCLS_ENNAME>
+  </CLASSES>
+  <CLS_PRICE>
+    <CP_ID>1</CP_ID>
+    <CLS_ID>63</CLS_ID>
+    <CP_DATE>2026-08-21T03:38:57+03:00</CP_DATE>
+    <CP_CLS_UN_1>2311</CP_CLS_UN_1>
+    <CP_CLS_UN_2>0</CP_CLS_UN_2>
+    <CP_CLS_UN_3>0</CP_CLS_UN_3>
+    <CP_CLS_UN_4>0</CP_CLS_UN_4>
+    <CP_CLS_UN_5>0</CP_CLS_UN_5>
+    <CP_CLS_UN_6>0</CP_CLS_UN_6>
+    <PRIC_ID>2</PRIC_ID>
+    <LAST_UPDATE>2026-08-21T03:38:57+03:00</LAST_UPDATE>
+    <CLS_ID_ADD>0</CLS_ID_ADD>
+    <CLS_IS_FOUND>0</CLS_IS_FOUND>
+  </CLS_PRICE>
+  <CLS_PRICE>
+    <CP_ID>2</CP_ID>
+    <CLS_ID>63</CLS_ID>
+    <CP_DATE>2026-08-21T03:38:57+03:00</CP_DATE>
+    <CP_CLS_UN_1>3213</CP_CLS_UN_1>
+    <CP_CLS_UN_2>0</CP_CLS_UN_2>
+    <CP_CLS_UN_3>0</CP_CLS_UN_3>
+    <CP_CLS_UN_4>0</CP_CLS_UN_4>
+    <CP_CLS_UN_5>0</CP_CLS_UN_5>
+    <CP_CLS_UN_6>0</CP_CLS_UN_6>
+    <PRIC_ID>5</PRIC_ID>
+    <LAST_UPDATE>2026-08-21T03:38:57+03:00</LAST_UPDATE>
+    <CLS_ID_ADD>0</CLS_ID_ADD>
+    <CLS_IS_FOUND>0</CLS_IS_FOUND>
+  </CLS_PRICE>
+  <CLS_PRICE>
+    <CP_ID>3</CP_ID>
+    <CLS_ID>64</CLS_ID>
+    <CP_DATE>2026-08-21T03:39:27+03:00</CP_DATE>
+    <CP_CLS_UN_1>33</CP_CLS_UN_1>
+    <CP_CLS_UN_2>0</CP_CLS_UN_2>
+    <CP_CLS_UN_3>0</CP_CLS_UN_3>
+    <CP_CLS_UN_4>0</CP_CLS_UN_4>
+    <CP_CLS_UN_5>0</CP_CLS_UN_5>
+    <CP_CLS_UN_6>0</CP_CLS_UN_6>
+    <PRIC_ID>1</PRIC_ID>
+    <LAST_UPDATE>2026-08-21T03:39:27+03:00</LAST_UPDATE>
+    <CLS_ID_ADD>0</CLS_ID_ADD>
+    <CLS_IS_FOUND>0</CLS_IS_FOUND>
+  </CLS_PRICE>
+  <CLS_PRICE>
+    <CP_ID>4</CP_ID>
+    <CLS_ID>64</CLS_ID>
+    <CP_DATE>2026-08-21T03:39:27+03:00</CP_DATE>
+    <CP_CLS_UN_1>2</CP_CLS_UN_1>
+    <CP_CLS_UN_2>0</CP_CLS_UN_2>
+    <CP_CLS_UN_3>0</CP_CLS_UN_3>
+    <CP_CLS_UN_4>0</CP_CLS_UN_4>
+    <CP_CLS_UN_5>0</CP_CLS_UN_5>
+    <CP_CLS_UN_6>0</CP_CLS_UN_6>
+    <PRIC_ID>5</PRIC_ID>
+    <LAST_UPDATE>2026-08-21T03:39:27+03:00</LAST_UPDATE>
+    <CLS_ID_ADD>0</CLS_ID_ADD>
+    <CLS_IS_FOUND>0</CLS_IS_FOUND>
+  </CLS_PRICE>
+  <CLS_UNIT_BARCODE>
+    <CLS_BAR_ID>1</CLS_BAR_ID>
+    <CLS_ID>63</CLS_ID>
+    <UN_ID>1</UN_ID>
+    <UN_BARCODE_NO>2131231231</UN_BARCODE_NO>
+    <CLS_BAR_PRICE>0</CLS_BAR_PRICE>
+    <CLS_BAR_IS_DEF>1</CLS_BAR_IS_DEF>
+    <CLS_ID_ADD>0</CLS_ID_ADD>
+    <CLS_IS_FOUND>0</CLS_IS_FOUND>
+  </CLS_UNIT_BARCODE>
+  <CLS_UNIT_BARCODE>
+    <CLS_BAR_ID>2</CLS_BAR_ID>
+    <CLS_ID>64</CLS_ID>
+    <UN_ID>1</UN_ID>
+    <UN_BARCODE_NO>33333333333333</UN_BARCODE_NO>
+    <CLS_BAR_PRICE>0</CLS_BAR_PRICE>
+    <CLS_BAR_IS_DEF>1</CLS_BAR_IS_DEF>
+    <CLS_ID_ADD>0</CLS_ID_ADD>
+    <CLS_IS_FOUND>0</CLS_IS_FOUND>
+  </CLS_UNIT_BARCODE>
+  <GROUP_CLASS>
+    <GCLS_ID>1</GCLS_ID>
+    <GCLS_NO>1</GCLS_NO>
+    <GCLS_AR_NAME>مجموعة الاصناف</GCLS_AR_NAME>
+    <GCLS_ENNAME>Items Gruop</GCLS_ENNAME>
+    <GCLS_STATE>0</GCLS_STATE>
+    <GCLS_STOR_ALL>0</GCLS_STOR_ALL>
+    <GCLS_PRICE>1</GCLS_PRICE>
+    <GCLS_PRICE_2>1</GCLS_PRICE_2>
+    <GCLS_PRICE_3>1</GCLS_PRICE_3>
+    <GCLS_CLS_PRICE_1>0</GCLS_CLS_PRICE_1>
+    <GCLS_CLS_PRICE_2>0</GCLS_CLS_PRICE_2>
+    <GCLS_CLS_PRICE_3>0</GCLS_CLS_PRICE_3>
+    <GCLS_CLS_PRICE_4>0</GCLS_CLS_PRICE_4>
+    <GCLS_CLS_PRICE_5>0</GCLS_CLS_PRICE_5>
+    <GCLS_CLS_PRICE_6>0</GCLS_CLS_PRICE_6>
+    <GCLS_CLS_PRICE_7>0</GCLS_CLS_PRICE_7>
+    <GCLS_CLS_PRICE_8>0</GCLS_CLS_PRICE_8>
+    <GCLS_FINAL>2</GCLS_FINAL>
+    <GCLS_IS_AMANSTORE>0</GCLS_IS_AMANSTORE>
+    <LAST_UPDATE>2026-08-02T11:03:21+03:00</LAST_UPDATE>
+    <IS_DONE>1</IS_DONE>
+    <GCLS_ID_ADD>0</GCLS_ID_ADD>
+    <GCLS_ID_ADD_2>0</GCLS_ID_ADD_2>
+    <CLS_IS_FOUND>0</CLS_IS_FOUND>
+  </GROUP_CLASS>
+</NewDataSet>

@@ -1,0 +1,160 @@
+"""
+إعدادات الأداة. عدّل هذا الملف حسب:
+- مسار برنامج Tesseract على الجهاز (إن لم يكن مضافاً إلى PATH).
+- مسار قالب الاستيراد الحقيقي (Excel) المُصدَّر من داخل AccSystem عبر
+  "استيراد و تصدير" -> "استيراد من اكسل" -> "إنشاء نموذج اكسل".
+- أسماء الأعمدة المطلوبة في القالب، بنفس ترتيبها كما يظهر في الملف الحقيقي.
+"""
+
+from pathlib import Path
+
+# مسار tesseract.exe إن لم يكن مسجلاً في PATH (اتركه None إذا كان مسجلاً في PATH)
+TESSERACT_CMD: str | None = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+# لغات OCR: العربية + الإنجليزية معاً
+OCR_LANGS = "ara+eng"
+
+# مجلد المشروع
+BASE_DIR = Path(__file__).resolve().parent
+
+# ملف قائمة الأصناف المرجعية (رقم الصنف + اسم الصنف)، مُصدَّر من AccSystem
+# يدعم اكسل (.xlsx) أو ملف قياسي (.AmnC / .xml)
+DEFAULT_ITEMS_REFERENCE_PATH = BASE_DIR / "item_master.AmnC"
+
+# ملف القالب الحقيقي (اختياري). إن تُرك فارغاً/غير موجود، تُستخدم أعمدة افتراضية
+# مبنية على شاشة فاتورة المشتريات كما هي ظاهرة في البرنامج، ويجب تحديثها بمجرد
+# الحصول على القالب الفعلي من "إنشاء نموذج اكسل" داخل AccSystem.
+IMPORT_TEMPLATE_PATH = BASE_DIR / "aman_import_template.xlsx"
+
+# أسماء أعمدة الإخراج الافتراضية (بترتيب ظهورها في شاشة فاتورة المشتريات)
+# رقم -> الباركود -> رقم الصنف -> اسم الصنف -> الوحدة -> الكمية -> سعر الوحدة -> الإجمالي
+DEFAULT_OUTPUT_COLUMNS = [
+    "رقم الصنف",
+    "اسم الصنف",
+    "الباركود",
+    "الوحدة",
+    "الكمية",
+    "سعر الوحدة",
+    "الإجمالي",
+]
+
+# عتبة نسبة التشابه (0-100) لقبول مطابقة الصنف تلقائياً دون مراجعة يدوية
+# (مع scorer=token_sort_ratio بعد التعديل - راجع items.py). خاصة بمطابقة
+# items.py الأساسية (باركود + تشابه اسم بسيط) - لا علاقة لها بمحرك
+# matching_engine.py الجديد، القيمتين تحت خاصتين فيه بالكامل.
+AUTO_MATCH_THRESHOLD = 80
+# تحت هذه النسبة، الصف يُعتبر "بدون مطابقة" ويحتاج اختيار يدوي. تُستخدم من
+# matching_engine.py كحد أدنى لعرض مرشّح بنافذة الاقتراحات أصلاً.
+MIN_SUGGEST_THRESHOLD = 55
+
+# عتبات محرك المطابقة الذكي الجديد (matching_engine.py) - افتراضية بالكود،
+# القيمة الفعلية المستخدمة تأتي من settings.py (قابلة للتعديل من الواجهة،
+# هذي بس النسخة الافتراضية أول تشغيل)
+MATCH_AUTO_ACCEPT_THRESHOLD = 95
+MATCH_NEEDS_REVIEW_THRESHOLD = 70
+# سقف الثقة الأقصى لأي مرشّح فيه تعارض خصائص حقيقي (حجم/عدد/تعبئة مختلفة) -
+# حتى لو تشابه الاسم عالي، ما يتجاوزه أبداً
+MATCH_ATTRIBUTE_CONFLICT_CAP = 40
+
+# نسبة ضريبة القيمة المضافة السعودية القياسية - تُستخدم لحساب الضريبة
+# والإجمالي بأسفل الجدول من مجموع الأصناف نفسها (مو من القيم المطبوعة
+# بالفاتورة، لأنها أحياناً تجي مقطوعة عبر صفحات أو غير مقروءة بوضوح)
+VAT_RATE = 0.15
+
+# محرك استخراج بنود الفاتورة: "vision" (ذكاء اصطناعي بصري Claude - أدق لكن
+# يحتاج إنترنت ومفتاح API) أو "tesseract" (محلي مجاني بدون إنترنت لكن أضعف
+# على الفواتير المزدحمة/متعددة الأسطر لكل صنف)
+EXTRACTION_BACKEND = "vision"
+ANTHROPIC_MODEL = "claude-opus-5"
+
+# مفتاح Anthropic API: إن ترك فارغاً، يُقرأ من متغير البيئة ANTHROPIC_API_KEY،
+# أو من ملف anthropic_api_key.txt (سطر واحد يحتوي المفتاح) داخل مجلد الأداة.
+ANTHROPIC_API_KEY_FILE = BASE_DIR / "anthropic_api_key.txt"
+
+# ============ الاتصال المباشر بقاعدة بيانات AccSystem (Oracle) ============
+# يحل مشكلة قِدَم ملف قائمة الأصناف: بدل تصدير ملف يدوياً في كل مرة، تُقرأ
+# قائمة الأصناف الحية مباشرة من نفس قاعدة البيانات التي يستخدمها AccSystem.
+
+# مسار ملف إعدادات AccSystem الذي يحتوي على بيانات اتصال Oracle الحقيقية
+ACCSYSTEM_CONFIG_PATH = Path(
+    r"D:\Program Files (x86)\AL_Shamel_Plus\AL_Shamel_Plus\AccSystem.exe.config"
+)
+# اسم سطر الاتصال داخل <connectionStrings> في ذلك الملف
+ACCSYSTEM_DB_CONNECTION_NAME = "OracleDbContext"
+
+# تجاوز يدوي لعنوان قاعدة البيانات (DSN) بصيغة "host:port/service_name".
+# هذا هو الافتراضي فقط لو ما وُجد ملف server_address.txt (انظر تحت) - يصلح
+# للحالة اللي فيها قاعدة البيانات على نفس الجهاز (localhost). لعملاء عندهم
+# سيرفر مركزي والموظفين يشتغلون من طرفيات (terminals) بعيدة عن السيرفر،
+# استخدم زر "عنوان سيرفر قاعدة البيانات" داخل الأداة نفسها بدل تعديل هذا
+# السطر - يحفظ العنوان بملف محلي منفصل لكل جهاز، بدون لمس الكود.
+_DEFAULT_ORACLE_DSN = "localhost:1521/orcl"
+
+# ملف نصي محلي (سطر واحد) يحفظ فيه عنوان سيرفر قاعدة البيانات الخاص بهذا
+# الجهاز تحديداً، لو كان مختلف عن localhost. يُنشأ تلقائياً أول مرة يحفظ
+# فيها المستخدم عنوان سيرفر من داخل الأداة. لا تنسخه بين الأجهزة - كل جهاز
+# (خصوصاً الطرفيات البعيدة عن السيرفر) يحتاج عنوانه الخاص.
+SERVER_ADDRESS_FILE = BASE_DIR / "server_address.txt"
+
+
+def get_dsn() -> str:
+    """يرجع عنوان قاعدة البيانات الحالي لهذا الجهاز: من server_address.txt
+    إن وُجد ومحفوظ فيه شي، وإلا الافتراضي (localhost - يصلح لو قاعدة
+    البيانات على نفس الجهاز اللي تشتغل عليه الأداة)."""
+    if SERVER_ADDRESS_FILE.exists():
+        saved = SERVER_ADDRESS_FILE.read_text(encoding="utf-8").strip()
+        if saved:
+            return saved
+    return _DEFAULT_ORACLE_DSN
+
+
+def save_dsn(dsn: str) -> None:
+    SERVER_ADDRESS_FILE.write_text(dsn.strip(), encoding="utf-8")
+
+
+# تجاوز يدوي لاسم المستخدم/كلمة المرور (بدل قراءتهما من AccSystem.exe.config).
+# استُخدم حساب SYSTEM (حساب إداري كامل الصلاحيات في Oracle) لأن بيانات
+# الاتصال في AccSystem.exe.config كانت قيماً افتراضية وهمية. تنبيه أمني:
+# حساب SYSTEM كامل الصلاحيات غير مثالي لبيئة إنتاج - الأفضل مستقبلاً حساب
+# محدود الصلاحيات (قراءة فقط) بدلاً منه.
+#
+# القيم نفسها ما عادت مكتوبة صراحة هنا - تُقرأ من ملف نصي محلي منفصل
+# (oracle_credentials.txt، نفس نمط server_address.txt بالضبط: سطر لكل قيمة)
+# غير متتبَّع بجيت (.gitignore) - عشان ما تُرفع كلمة المرور لمستودع مشترك
+# وتبقى بتاريخه للأبد حتى لو حُذفت بعدين. لو الملف غير موجود، يرجع
+# get_oracle_credentials() قيمتين فارغتين ويعتمد db_items.py::_connect() على
+# AccSystem.exe.config بدلاً منه (السلوك الافتراضي الأصلي).
+_ORACLE_CREDENTIALS_FILE = BASE_DIR / "oracle_credentials.txt"
+
+
+def get_oracle_credentials() -> tuple[str | None, str | None]:
+    """يرجع (user, password) من oracle_credentials.txt (سطر أول = اسم
+    المستخدم، سطر ثاني = كلمة المرور) لو موجود وفيه اسم مستخدم، وإلا
+    (None, None)."""
+    if _ORACLE_CREDENTIALS_FILE.exists():
+        lines = _ORACLE_CREDENTIALS_FILE.read_text(encoding="utf-8").splitlines()
+        user = lines[0].strip() if len(lines) > 0 else ""
+        password = lines[1].strip() if len(lines) > 1 else ""
+        if user:
+            return user, password
+    return None, None
+
+# اسم "ملف"/شركة AccSystem (schema) المالك لجدول الأصناف الفعلي. بما أننا
+# نتصل بحساب SYSTEM (وليس حساب الشركة نفسه)، يجب تحديد اسم الـschema صراحة
+# لتأهيل اسم الجدول (schema.CLASSES). اتركه None إن كان حساب الاتصال هو
+# نفسه مالك الجدول (لا حاجة لتأهيل الاسم). اتركه None ليكتشفه البرنامج
+# تلقائياً من قاعدة البيانات (schema بنمط SAL_سنة_رقم، الأحدث إن وُجد أكثر
+# من شركة) - هذا يسمح بنقل الأداة لعميل آخر بدون تعديل الكود. حدّده يدوياً
+# فقط إن فشل الاكتشاف التلقائي أو أردت إجبار شركة معينة.
+ORACLE_ITEMS_SCHEMA: str | None = None
+
+# استعلام قائمة الأصناف من جدول الأصناف الرئيسي في AccSystem، مع ربط جدول
+# باركود الوحدات (CLS_UNIT_BARCODE) - الباركود الحقيقي المستخدم فعلياً على
+# الفواتير يُخزَّن هناك، وليس بعمود GTIN بجدول CLASSES (يبقى فارغاً غالباً).
+# (بدون تأهيل اسم الـschema - يُضاف تلقائياً في db_items.py من ORACLE_ITEMS_SCHEMA)
+ITEMS_TABLE_QUERY = """
+    SELECT c.CLS_ID, c.CLS_NO, c.CLS_ARNAME, c.CLS_ENNAME, c.CLS_UN_1,
+           b.UN_BARCODE_NO, b.UN_ID
+    FROM {schema}CLASSES c
+    LEFT JOIN {schema}CLS_UNIT_BARCODE b ON b.CLS_ID = c.CLS_ID
+"""

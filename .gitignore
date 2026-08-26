@@ -1,0 +1,25 @@
+# أسرار وبيانات اتصال محلية - خاصة بكل جهاز، أبداً ما تُرفع
+anthropic_api_key.txt
+oracle_credentials.txt
+server_address.txt
+
+# حالة تشغيل محلية (تُنشأ تلقائياً، مختلفة لكل جهاز/مستخدم)
+usage_state.json
+learned_matches.json
+matching_settings.json
+
+# ملفات بايثون مؤقتة
+__pycache__/
+*.pyc
+
+# نواتج اختبار/تصدير محلية (لو وُجدت)
+*.egg-info/
+.pytest_cache/
+
+# ملفات اختبار قديمة تحتوي بيانات فاتورة/أصناف حقيقية فعلية (مو بيانات
+# اصطناعية زي sample_invoice.pdf/sample_item_master.xlsx) - تأكدنا من محتواها
+# قبل الاستبعاد: أسعار وأسماء أصناف حقيقية من فواتير موردين فعليين
+tests/mabiaat_page1.png
+tests/test_export.Amn
+tests/sample_output_real.xlsx
+tests/vision_real_output.xlsx
