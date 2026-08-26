@@ -204,15 +204,55 @@ def _candidate_priority_tier(sources: set[str]) -> int:
     return 4  # مصدر بنيوي وحيد بس (مثلاً حجم فقط) - أضعف أولوية، أول من يُقصّ
 
 
+# حصص محجوزة لكل رتبة أولوية (راجع _candidate_priority_tier) - مو مجرد
+# ترتيب، لأن رتبة "الأعلى أولوية" (تاريخ المورد) نفسها ممكن تفيض عن السقف
+# (مثلاً مورد عنده أكثر من 100 صنف مؤكَّد سابقاً) وتبتلع كل الحصة على حساب
+# مرشّح اسم قوي برتبة أضعف. كل رتبة محفوظ لها حد أقصى، والفائض (لو رتبة
+# استخدمت أقل من حصتها) يتوزّع على باقي الرتب بترتيب الأولوية نفسه - الرتبة
+# الأخيرة (4: خاصية بنيوية وحيدة شائعة) بلا حصة مخصصة، تاخذ أي شي يفضل.
+_TIER_QUOTAS = {0: 25, 1: 20, 2: 10, 3: 20}
+
+
 def _rank_and_cap_candidates(hits: dict[int, set[str]]) -> list[int]:
-    """يرتّب المرشّحين حسب رتبة الأولوية (_candidate_priority_tier) أولاً،
-    وعدد المصادر كمعيار ترجيح ثانوي داخل نفس الرتبة، ويقصّهم لسقف أقصى قبل
-    التقييم الكامل - يحمي الأداء لو خاصية شائعة جداً (مثلاً "1 لتر" بقائمة
-    35 ألف صنف) رجّعت مئات المرشّحين من مصدر واحد بس، **بدون** إسقاط
-    مرشّحين حقيقيين (تاريخ مورد/تشابه اسم/تقاطع خصائص) لمجرد الزحمة - هذول
-    دايماً يترتّبون قبل مرشّح "خاصية شائعة وحيدة"."""
-    ranked = sorted(hits.keys(), key=lambda idx: (_candidate_priority_tier(hits[idx]), -len(hits[idx])))
-    return ranked[:_MAX_CANDIDATES_BEFORE_SCORING]
+    """يقصّ المرشّحين لسقف أقصى قبل التقييم الكامل - يحمي الأداء لو خاصية
+    شائعة جداً (مثلاً "1 لتر" بقائمة 35 ألف صنف) رجّعت مئات المرشّحين من
+    مصدر واحد بس. **مو ترتيب عالمي بس** - كل رتبة أولوية لها حصة محجوزة
+    (_TIER_QUOTAS)، عشان رتبة عالية الأولوية بس فياضة العدد (مثلاً تاريخ
+    مورد عنده مئات الأصناف) ما تبتلع السقف كامل وتُسقط مرشّح اسم قوي برتبة
+    أضعف - الحصص تضمن كل رتبة تاخذ نصيبها الأدنى المضمون قبل أي فائض يتوزّع."""
+    by_tier: dict[int, list[int]] = defaultdict(list)
+    for idx, sources in hits.items():
+        by_tier[_candidate_priority_tier(sources)].append(idx)
+    for tier_indices in by_tier.values():
+        tier_indices.sort(key=lambda idx: -len(hits[idx]))
+
+    selected: list[int] = []
+    selected_set: set[int] = set()
+    for tier in sorted(by_tier.keys()):
+        quota = _TIER_QUOTAS.get(tier, _MAX_CANDIDATES_BEFORE_SCORING)
+        remaining_cap = _MAX_CANDIDATES_BEFORE_SCORING - len(selected)
+        take = min(quota, remaining_cap, len(by_tier[tier]))
+        if take <= 0:
+            continue
+        chosen = by_tier[tier][:take]
+        selected.extend(chosen)
+        selected_set.update(chosen)
+
+    # فائض: رتبة استخدمت أقل من حصتها المحجوزة تسيب مجال بالسقف - نعبّيه من
+    # أي مرشّح لسا ما أُخذ، بنفس ترتيب أولوية الرتب (الأعلى أولوية أولاً)
+    if len(selected) < _MAX_CANDIDATES_BEFORE_SCORING:
+        for tier in sorted(by_tier.keys()):
+            if len(selected) >= _MAX_CANDIDATES_BEFORE_SCORING:
+                break
+            for idx in by_tier[tier]:
+                if idx in selected_set:
+                    continue
+                selected.append(idx)
+                selected_set.add(idx)
+                if len(selected) >= _MAX_CANDIDATES_BEFORE_SCORING:
+                    break
+
+    return selected
 
 
 def _price_signal(line_price: float | None, ref_item: ReferenceItem) -> tuple[float, str | None]:
@@ -427,6 +467,36 @@ def _score_learned_candidate(
     )
 
 
+def _merge_learned_with_ordinary(
+    ordinary: MatchCandidate, learned: MatchCandidate, confirm_count: int
+) -> MatchCandidate:
+    """يدمج دليل المطابقة العادي (اسم+خصائص+مورد+إلخ) مع دليل الذاكرة
+    المتعلّمة لنفس الصنف - بدل استبدال أحدهما بالثاني بالكامل (كان يخفّض
+    ثقة مرشّح قوي فعلاً بصمت لمجرد وجود تأكيد ذاكرة واحد أضعف، مثلاً من 98%
+    لـ80%). الثقة النهائية = أعلى الاثنين. هذا مكافئ رياضياً لتطبيق نفس سقف
+    التعارض البنيوي المشترك على المجموع (max(min(a,cap), min(b,cap)) ==
+    min(max(a,b), cap))، لأن الاثنين يحسبان نفس فحص التعارض من نفس الحقائق
+    (نفس line_attrs، نفس اسم الصنف) - فتعارض بنيوي حقيقي يبقى سقف فعلي، ما
+    يقدر "بوست" الذاكرة يتجاوزه، بينما دليل عادي قوي فعلاً ما ينخفض بسبب
+    ذاكرة أضعف."""
+    if ordinary.confidence >= learned.confidence:
+        winner, note_only = ordinary, True
+    else:
+        winner, note_only = learned, False
+
+    reason = winner.reason
+    if note_only:
+        reason += f"، وأيضاً مطابقة سابقة مؤكَّدة ({confirm_count} مرة)"
+
+    return MatchCandidate(
+        item=winner.item,
+        confidence=winner.confidence,
+        reason=reason,
+        has_structural_conflict=ordinary.has_structural_conflict or learned.has_structural_conflict,
+        from_supplier_history=ordinary.from_supplier_history or learned.from_supplier_history,
+    )
+
+
 def suggest_candidates(
     line: ExtractedLine,
     reference: list[ReferenceItem],
@@ -439,7 +509,10 @@ def suggest_candidates(
     بالتصميم - راجع learned_matches.confidence_for_confirm_count)، لكنه
     **يشارك بنفس الترتيب العادل** مع باقي المرشّحين حسب الثقة الفعلية بعد
     فحص التعارضات البنيوية (_score_learned_candidate) - مو محصّن أو مثبّت
-    بالمرتبة الأولى بشكل مطلق. ذاكرة قديمة تتعارض مع الفاتورة الحالية
+    بالمرتبة الأولى بشكل مطلق. لو نفس الصنف عنده دليل عادي (اسم/خصائص/مورد)
+    ودليل ذاكرة معاً، **يُدمَجان** (_merge_learned_with_ordinary) بدل ما
+    يستبدل أحدهما الثاني - ذاكرة أضعف (مثلاً تأكيد واحد بس) أبداً ما تخفّض
+    ثقة دليل عادي أقوى فعلاً. ذاكرة قديمة تتعارض مع الفاتورة الحالية
     (حجم/عدد/تعبئة/وحدة مختلف فعلياً) تنزل ثقتها فعلياً، فمرشّح ثاني أسلم
     وأقوى ممكن يتصدّر بدلها - هذا يمنع enhance_one() من اعتبار ذاكرة
     متعارضة "أفضل مرشّح" بصمت."""
@@ -456,10 +529,16 @@ def suggest_candidates(
         learned_item = _find_by_code(reference, entry["matched_item_code"])
         if learned_item is not None:
             learned_candidate = _score_learned_candidate(line, line_attrs, learned_item, confirm_count)
-            # نستبدل أي نسخة ثانية لنفس الصنف رجّعتها المصادر العادية (لو
-            # صار) بالنسخة المعزّزة بالذاكرة - مو نضيفهم مكرّرين لبعض
+            # الصنف نفسه ممكن يتكرر بعدة صفوف بالمرجع (باركود/وحدة مختلفة) -
+            # لو المصادر العادية رجّعت أكثر من صف لنفس الكود، نأخذ أقواهم
+            # للدمج (نفس فلسفة "أفضل صف لكل كود" المستخدمة بالدمج النهائي)
+            same_code_ordinary = [c for c in all_candidates if c.item.code == learned_candidate.item.code]
             all_candidates = [c for c in all_candidates if c.item.code != learned_candidate.item.code]
-            all_candidates.append(learned_candidate)
+            if same_code_ordinary:
+                best_ordinary = max(same_code_ordinary, key=lambda c: c.confidence)
+                all_candidates.append(_merge_learned_with_ordinary(best_ordinary, learned_candidate, confirm_count))
+            else:
+                all_candidates.append(learned_candidate)
 
     all_candidates.sort(key=lambda c: c.confidence, reverse=True)
 
