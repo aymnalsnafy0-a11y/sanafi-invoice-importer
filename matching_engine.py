@@ -49,6 +49,19 @@ _MAX_CANDIDATES_BEFORE_SCORING = 80  # سقف المجموع بعد دمج كل 
 _SIZE_BUCKET_LOG_STEP = math.log(1.05)  # نفس نسبة تسامح 5% المستخدمة بـitem_attributes.size_status
 _MIN_BRAND_TOKEN_LEN = 3  # حد أدنى لطول الماركة عشان "نثق" فيها بما يكفي للاسترجاع/المكافأة/العقوبة
 
+# وحدات تعبئة "خارجية" بالجملة (فاتورة المورد غالباً تكتب بها) مقابل "حبة"
+# (القاعدة غالباً مسجّلة بسعر أصغر وحدة بيع) - اختلاف طبيعي متوقع بين
+# فاتورة جملة وقاعدة صنف، مو دليل صنف مختلف بمفرده (راجع _is_packaging_tier_pair).
+_PACKAGING_TIER_OUTER = frozenset({"carton", "box", "bag", "dozen", "pallet"})
+
+
+def _is_packaging_tier_pair(unit_a: str, unit_b: str) -> bool:
+    """True لو الوحدتان بالضبط زوج (تعبئة خارجية بالجملة، حبة) - كرتون/صندوق/
+    كيس/دستة/بالة مقابل حبة، بأي اتجاه. مو أي زوج وحدات مختلفتين (مثلاً كرتون
+    مقابل كيس يبقى تعارض حقيقي كالمعتاد - غير مطلوب توسيعه لهذا)."""
+    pair = {unit_a, unit_b}
+    return "piece" in pair and bool(pair & _PACKAGING_TIER_OUTER)
+
 
 @dataclass
 class MatchCandidate:
@@ -339,6 +352,23 @@ def _score_one_candidate(
             bonus += 6
             reason_parts.append("الوحدة الصريحة متطابقة")
             supported = True
+        elif (
+            _is_packaging_tier_pair(line_unit_canon, ref_unit_canon)
+            and name_score >= config.MIN_SUGGEST_THRESHOLD
+            and size_stat == "agree"
+            and pack_stat != "conflict"
+            and unit_word_stat != "conflict"
+        ):
+            # كرتون/صندوق/كيس.. بالفاتورة مقابل حبة بالقاعدة (أو العكس) طبيعي
+            # جداً بفواتير الجملة - القاعدة غالباً مسجّلة بسعر أصغر وحدة بيع
+            # بينما المورد يفوتر بالكرتون. **قرار صريح من المستخدم**: هذا
+            # وحده ليس تعارض صنف، طالما بقية الأدلة قوية وواضحة (اسم مو
+            # ضعيف، حجم/وزن متطابق فعلاً، وعدد القطع/التعبئة إما متطابق أو
+            # غير معروف - مو متعارض). الشرط صارم عمداً: لو أي بند ناقص أو
+            # فعلاً متعارض، نرجع للسلوك القديم بالـelse أدناه (يبقى سبب مراجعة).
+            reason_parts.append(
+                f"ملاحظة: وحدة تعبئة مختلفة عن القاعدة بالفاتورة ({line.unit} مقابل {ref_item.default_unit}) - ليست تعارض صنف طالما باقي الأدلة متطابقة"
+            )
         else:
             hard_cap = min(hard_cap, config.MATCH_ATTRIBUTE_CONFLICT_CAP)
             reason_parts.append(f"⚠ اختلاف الوحدة الصريحة: {line.unit} مقابل {ref_item.default_unit}")
@@ -456,8 +486,17 @@ def _score_learned_candidate(
     line_unit_canon = canonicalize_unit_word(line.unit)
     ref_unit_canon = canonicalize_unit_word(learned_item.default_unit)
     if line_unit_canon is not None and ref_unit_canon is not None and line_unit_canon != ref_unit_canon:
-        hard_cap = min(hard_cap, config.MATCH_ATTRIBUTE_CONFLICT_CAP)
-        reason_parts.append(f"⚠ اختلاف الوحدة الصريحة: {line.unit} مقابل {learned_item.default_unit}")
+        # نفس استثناء "كرتون بالفاتورة مقابل حبة بالقاعدة" المطبَّق بالتقييم
+        # العادي (_score_one_candidate) - بدون شرط اسم هنا (المطابقة أصلاً
+        # مؤكَّدة بشرياً سابقاً لنفس الوصف والمورد، هوية الصنف ليست موضع شك،
+        # فقط نتأكد بقية الخصائص البنيوية ما تتعارض فعلياً).
+        if _is_packaging_tier_pair(line_unit_canon, ref_unit_canon) and size_stat == "agree" and pack_stat != "conflict" and unit_word_stat != "conflict":
+            reason_parts.append(
+                f"ملاحظة: وحدة تعبئة مختلفة عن القاعدة بالفاتورة ({line.unit} مقابل {learned_item.default_unit}) - ليست تعارض صنف طالما باقي الأدلة متطابقة"
+            )
+        else:
+            hard_cap = min(hard_cap, config.MATCH_ATTRIBUTE_CONFLICT_CAP)
+            reason_parts.append(f"⚠ اختلاف الوحدة الصريحة: {line.unit} مقابل {learned_item.default_unit}")
 
     confidence = min(confidence, hard_cap)
     return MatchCandidate(
