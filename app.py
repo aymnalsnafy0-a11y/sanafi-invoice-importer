@@ -10,6 +10,7 @@
 """
 
 import json
+import re
 import threading
 import tkinter as tk
 from dataclasses import dataclass, field
@@ -133,24 +134,76 @@ _EDITABLE_FIELD_BY_COLUMN = {
 _NUMERIC_FIELD_BY_COLUMN = {"qty": "quantity", "price": "unit_price", "total": "total"}
 
 
+_TASHKEEL_RE = re.compile(r"[ؐ-ًؚ-ٰٟۖ-ۭـ]")
+_ALEF_VARIANTS_RE = re.compile(r"[إأآٱ]")
+
+
+def _normalize_arabic(text: str) -> str:
+    """توحيد محافظ للنص العربي قبل مقارنة حرفية - يوحّد أ/إ/آ/ٱ لألف عادية
+    ويوحّد ى لياء، يزيل التشكيل والتطويل، ويجمع المسافات المتكررة. لا يوسّع
+    ة/ه (فرق حقيقي بالمعنى، مو مجرد اختلاف إملائي - عمداً غير مطلوب هنا)."""
+    if not text:
+        return ""
+    text = _TASHKEEL_RE.sub("", text)
+    text = _ALEF_VARIANTS_RE.sub("ا", text)
+    text = text.replace("ى", "ي")
+    text = re.sub(r"\s+", " ", text).strip()
+    return text.casefold()
+
+
 def _search_reference_items(reference: list, query: str, limit: int = 8) -> list[tuple[float, object]]:
-    """بحث موحّد بقائمة الأصناف المرجعية - يبحث بالاسم (تشابه ضبابي) وكمان
-    بالباركود ورقم الصنف (تطابق جزئي دقيق، مو ضبابي - الأرقام ما تحتاج
-    تسامح بالتشابه، إما تحتوي النص المكتوب أو لا). أي تطابق مباشر بباركود/
-    رقم صنف يتصدّر النتائج بثقة كاملة، حتى لو تشابه الاسم صفر."""
+    """بحث موحّد بقائمة الأصناف المرجعية بترتيب أولوية صريح (تراتبي، مو مجرد
+    أعلى score): باركود تام -> رقم صنف تام -> باركود/رقم صنف يبدأ به أو
+    يحتويه -> اسم مطابق تماماً (بعد توحيد عربي محافظ) -> اسم يبدأ بالاستعلام
+    -> اسم يحتويه -> أخيراً fuzzy كـfallback بس لما ما فيه أي تطابق حرفي.
+    أي تطابق حرفي بالاسم يسبق أي نتيجة fuzzy-only بغض النظر عن رقم التشابه
+    الضبابي (مشكلة حقيقية: "ريتا عصير برتقال..." اسم طويل حقيقي كان ينزل
+    تحت نتائج غير ذات صلة إطلاقاً لأن token_sort_ratio يعاقب الأسماء
+    الطويلة نسبةً لاستعلام قصير)."""
     query = (query or "").strip()
     if not query or not reference:
         return []
     from rapidfuzz import fuzz
 
-    scored = []
+    query_norm = _normalize_arabic(query)
+
+    TIER_EXACT_BARCODE = 0
+    TIER_EXACT_CODE = 1
+    TIER_CODE_BARCODE_PARTIAL = 2
+    TIER_NAME_EXACT = 3
+    TIER_NAME_STARTSWITH = 4
+    TIER_NAME_CONTAINS = 5
+    TIER_FUZZY = 6
+
+    ranked = []
     for item in reference:
-        name_score = fuzz.token_sort_ratio(query, item.name) if item.name else 0.0
-        code_score = 100.0 if item.code and query in item.code else 0.0
-        barcode_score = 100.0 if item.barcode and query in item.barcode else 0.0
-        scored.append((max(name_score, code_score, barcode_score), item))
-    scored.sort(key=lambda t: t[0], reverse=True)
-    return scored[:limit]
+        code = item.code or ""
+        barcode = item.barcode or ""
+        name_norm = _normalize_arabic(item.name or "")
+
+        if barcode and query == barcode:
+            ranked.append((TIER_EXACT_BARCODE, 100.0, item))
+            continue
+        if code and query == code:
+            ranked.append((TIER_EXACT_CODE, 100.0, item))
+            continue
+        if (barcode and query in barcode) or (code and query in code):
+            ranked.append((TIER_CODE_BARCODE_PARTIAL, 90.0, item))
+            continue
+        if name_norm and query_norm and query_norm == name_norm:
+            ranked.append((TIER_NAME_EXACT, 95.0, item))
+            continue
+        if name_norm and query_norm and name_norm.startswith(query_norm):
+            ranked.append((TIER_NAME_STARTSWITH, 85.0, item))
+            continue
+        if name_norm and query_norm and query_norm in name_norm:
+            ranked.append((TIER_NAME_CONTAINS, 75.0, item))
+            continue
+        fuzzy_score = fuzz.token_sort_ratio(query_norm, name_norm) if name_norm else 0.0
+        ranked.append((TIER_FUZZY, fuzzy_score, item))
+
+    ranked.sort(key=lambda t: (t[0], -t[1]))
+    return [(score, item) for _tier, score, item in ranked[:limit]]
 
 
 def _plain_confidence_label(confidence: float) -> str:
@@ -835,8 +888,13 @@ class InvoiceImporterApp(tk.Tk):
                     continue  # تطابق باركود مؤكد بالفعل - يُترك كما هو تماماً، ما يُلمس إطلاقاً
                 # أي سطر ثاني (حتى لو items.py طابقه بالاسم الضبابي الداخلي)
                 # يُعاد حسابه بالكامل بالمحرك الجديد، عشان فحص تعارض الخصائص
-                # ينطبق دايماً - راجع matching_engine.py
-                matching_engine.enhance_one(line, reference, supplier_name=supplier_name, reference_attrs_index=reference_attrs_index)
+                # ينطبق دايماً - راجع matching_engine.py. allow_semantic=False
+                # عمداً: الاستخراج محلي بحت بدون أي نداء شبكي لـSemantic AI
+                # (راجع docstring enhance_one) - AI يبقى حصراً بنافذة المراجعة.
+                matching_engine.enhance_one(
+                    line, reference, supplier_name=supplier_name,
+                    reference_attrs_index=reference_attrs_index, allow_semantic=False,
+                )
 
         inv.lines = inv_lines
         inv.subtotal_before_tax = subtotal_before_tax

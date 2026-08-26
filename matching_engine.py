@@ -841,11 +841,23 @@ def enhance_one(
     reference: list[ReferenceItem],
     supplier_name: str | None = None,
     reference_attrs_index: ReferenceIndex | None = None,
+    allow_semantic: bool = True,
 ) -> None:
-    """يعيد حساب مطابقة سطر ما تطابق بالباركود من الصفر (يشمل محاولة إعادة
-    ترتيب دلالي بالذكاء الاصطناعي للحالات الصعبة - راجع semantic_enhance_candidates؛
-    يشتغل هذا أثناء الاستخراج بخيط خلفية أصلاً بـapp.py، فتأخير شبكي محتمل
-    آمن هنا). يُطبَّق التطابق فعلياً (matched_item_code وغيره) بس لو تحقق **كل** مما يلي:
+    """يعيد حساب مطابقة سطر ما تطابق بالباركود من الصفر. لو allow_semantic=True
+    (الافتراضي، للتوافق الخلفي مع الاختبارات القديمة)، يحاول أيضاً إعادة
+    ترتيب دلالي بالذكاء الاصطناعي للحالات الصعبة (راجع semantic_enhance_candidates).
+
+    قاعدة معمارية صريحة: مسار الاستخراج الفعلي (_extract_one_invoice بـapp.py)
+    يستدعي هذي الدالة بـallow_semantic=False دائماً - الاستخراج محلي بحت،
+    صفر نداء شبكي لـSemantic AI، حتى لو يشتغل بخيط خلفية أصلاً (كان التبرير
+    السابق: "تأخير شبكي محتمل آمن هنا" لأنه خيط خلفية - لكن هذا يعني كل سطر
+    "يحتاج مراجعة" بكل فاتورة بالدفعة ينتظر نداء AI متسلسل، وهذا فعلياً كان
+    سبب بطء قراءة الفواتير الرئيسي، مو مجرد نظري - قياس فعلي: نداء AI واحد
+    ~4.5 ثانية مقابل ~0.08 ثانية للمطابقة المحلية البحتة لنفس السطر). AI يبقى
+    حصراً بنافذة المراجعة (_open_review_dialog بـapp.py) عبر خيط خلفية غير
+    محاجب - ذاك المسار غير ملموس هنا ولا يستدعي enhance_one إطلاقاً.
+
+    يُطبَّق التطابق فعلياً (matched_item_code وغيره) بس لو تحقق **كل** مما يلي:
     1. ثقة أفضل مرشّح >= عتبة القبول التلقائي.
     2. الفرق عن ثاني أفضل مرشّح كافٍ (فجوة غموض - config.MATCH_MIN_CONFIDENCE_GAP).
     3. لو AI ساهم بالثقة، ما يكون **السبب الوحيد** لعبور العتبة بدون أدلة
@@ -856,9 +868,15 @@ def enhance_one(
     if reference_attrs_index is None:
         reference_attrs_index = build_reference_attrs_index(reference)
 
-    candidates, ai_was_deciding_factor = semantic_enhance_candidates(
-        line, reference, supplier_name, reference_attrs_index, top_n=2
-    )
+    if allow_semantic:
+        candidates, ai_was_deciding_factor = semantic_enhance_candidates(
+            line, reference, supplier_name, reference_attrs_index, top_n=2
+        )
+    else:
+        candidates = suggest_candidates(
+            line, reference, supplier_name, reference_attrs_index, top_n=2
+        )
+        ai_was_deciding_factor = False
     if not candidates:
         line.needs_review = True
         return
