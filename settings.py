@@ -18,6 +18,11 @@ _DEFAULTS = {
     "auto_accept_threshold": config.MATCH_AUTO_ACCEPT_THRESHOLD,
     "needs_review_threshold": config.MATCH_NEEDS_REVIEW_THRESHOLD,
     "auto_learn_from_manual_edits": True,
+    # الفرق الأدنى بين أفضل مرشّحين عشان القبول التلقائي يُسمح - راجع
+    # config.MATCH_MIN_CONFIDENCE_GAP للشرح. مُضاف هنا للاتساق مع باقي
+    # العتبات القابلة للتعديل (لا توجد بعد خانة بواجهة الإعدادات لها تحديداً -
+    # تُعدَّل حالياً عبر matching_settings.json مباشرة لو احتجت تغييرها).
+    "min_confidence_gap": config.MATCH_MIN_CONFIDENCE_GAP,
 }
 
 

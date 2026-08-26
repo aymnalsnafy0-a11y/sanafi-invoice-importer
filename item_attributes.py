@@ -145,15 +145,7 @@ def extract_attributes(text: str) -> ItemAttributes:
                 break
 
     # 3) نوع التعبئة - التعبئة الخارجية أولى من وحدة العد الداخلية
-    for word, canon in _OUTER_PACK_WORDS_NORM.items():
-        if re.search(rf"\b{re.escape(word)}\b", norm):
-            attrs.unit_word = canon
-            break
-    if attrs.unit_word is None:
-        for word, canon in _INNER_UNIT_WORDS_NORM.items():
-            if re.search(rf"\b{re.escape(word)}\b", norm):
-                attrs.unit_word = canon
-                break
+    attrs.unit_word = _find_unit_word(norm)
 
     # 4) ماركة - تخمين ضعيف عمداً: أول كلمة غير رقمية وغير وصفية عامة
     tokens = norm.split()
@@ -170,25 +162,88 @@ def extract_attributes(text: str) -> ItemAttributes:
     return attrs
 
 
+def _find_unit_word(norm: str) -> str | None:
+    """يبحث عن نوع التعبئة بنص مطبَّع مسبقاً (التعبئة الخارجية أولى من وحدة
+    العد الداخلية). مستخدَمة داخلياً من extract_attributes ومن
+    canonicalize_unit_word معاً - عشان يبقى نفس المنطق بمكان واحد."""
+    for word, canon in _OUTER_PACK_WORDS_NORM.items():
+        if re.search(rf"\b{re.escape(word)}\b", norm):
+            return canon
+    for word, canon in _INNER_UNIT_WORDS_NORM.items():
+        if re.search(rf"\b{re.escape(word)}\b", norm):
+            return canon
+    return None
+
+
+def size_family(unit: str | None) -> str | None:
+    """يرجّع "weight" أو "volume" حسب وحدة الحجم/الوزن، أو None لو الوحدة
+    غير معروفة. مستخدمة من matching_engine.py لبناء فهرس استرجاع حسب عائلة
+    الحجم (نفس منطق التصنيف الداخلي بـcheck_attribute_conflict، بس مكشوف
+    للاستخدام من برّا هذا الملف)."""
+    if not unit:
+        return None
+    unit = unit.lower()
+    if unit in _WEIGHT_UNITS:
+        return "weight"
+    if unit in _VOLUME_UNITS:
+        return "volume"
+    return None
+
+
+def canonicalize_unit_word(text: str) -> str | None:
+    """يطبّق نفس منطق البحث عن نوع التعبئة الموجود بـextract_attributes، بس
+    على نص قصير مباشر (مثلاً حقل "الوحدة" الصريح - line.unit أو
+    ref_item.default_unit) بدل وصف صنف كامل. يُستخدم من matching_engine.py
+    للمقارنة المباشرة بين الوحدة المطبوعة بالفاتورة والوحدة المسجّلة
+    بالقاعدة - إشارة منفصلة تماماً عن unit_word المستنتج من اسم الصنف
+    (ممكن الاسم ما يذكر الوحدة إطلاقاً، بينما الحقل الصريح موجود)."""
+    if not text:
+        return None
+    return _find_unit_word(_normalize_text(text))
+
+
+def size_status(a: ItemAttributes, b: ItemAttributes) -> str | None:
+    """'agree' / 'conflict' / None (غير قابل للمقارنة - ناقص بطرف أو
+    الاثنين، أو عائلتين مختلفتين وزن/حجم فمو قابلين للمقارنة أصلاً). تسامح
+    5% (فروق تقريب الطباعة/التحويل)."""
+    if a.size_value_base is None or b.size_value_base is None:
+        return None
+    a_family = "weight" if a.size_unit in _WEIGHT_UNITS else "volume"
+    b_family = "weight" if b.size_unit in _WEIGHT_UNITS else "volume"
+    if a_family != b_family:
+        return None
+    bigger = max(a.size_value_base, b.size_value_base)
+    smaller = min(a.size_value_base, b.size_value_base)
+    if bigger <= 0:
+        return None
+    return "conflict" if (bigger - smaller) / bigger > 0.05 else "agree"
+
+
+def pack_count_status(a: ItemAttributes, b: ItemAttributes) -> str | None:
+    """'agree' / 'conflict' / None - لازم يتطابق تماماً (عدد قطع مو رقم
+    تقريبي)."""
+    if a.pack_count is None or b.pack_count is None:
+        return None
+    return "agree" if a.pack_count == b.pack_count else "conflict"
+
+
+def unit_word_status(a: ItemAttributes, b: ItemAttributes) -> str | None:
+    """'agree' / 'conflict' / None - لازم يتطابق تماماً (كرتون ≠ حبة)."""
+    if a.unit_word is None or b.unit_word is None:
+        return None
+    return "agree" if a.unit_word == b.unit_word else "conflict"
+
+
 def check_attribute_conflict(a: ItemAttributes, b: ItemAttributes) -> tuple[bool, str]:
     """True + سبب لو خاصية مكتشفة بالطرفين تختلف فعلياً - لو خاصية غير
-    مكتشفة بأي طرف، ما نعاقب عليها (مو تعارض، بس معلومة ناقصة)."""
-    # الحجم: يُقارن بس لو نفس العائلة (وزن مع وزن، حجم مع حجم)
-    if a.size_value_base is not None and b.size_value_base is not None:
-        a_family = "weight" if a.size_unit in _WEIGHT_UNITS else "volume"
-        b_family = "weight" if b.size_unit in _WEIGHT_UNITS else "volume"
-        if a_family == b_family:
-            bigger = max(a.size_value_base, b.size_value_base)
-            smaller = min(a.size_value_base, b.size_value_base)
-            if bigger > 0 and (bigger - smaller) / bigger > 0.05:
-                return True, f"اختلاف الحجم/الوزن: {a.size_value}{a.size_unit} مقابل {b.size_value}{b.size_unit}"
-
-    # عدد القطع: لازم يتطابق تماماً لو الاثنين مكتشفين
-    if a.pack_count is not None and b.pack_count is not None and a.pack_count != b.pack_count:
+    مكتشفة بأي طرف، ما نعاقب عليها (مو تعارض، بس معلومة ناقصة). مبنية من 3
+    فحوصات منفصلة (size_status/pack_count_status/unit_word_status) -
+    matching_engine.py يستخدم نفس الفحوصات فردياً لحساب مكافأة/عقوبة كل
+    خاصية على حدة بتقييمه متعدد العوامل، مو بس تعارض/لا-تعارض مجمّع."""
+    if size_status(a, b) == "conflict":
+        return True, f"اختلاف الحجم/الوزن: {a.size_value}{a.size_unit} مقابل {b.size_value}{b.size_unit}"
+    if pack_count_status(a, b) == "conflict":
         return True, f"اختلاف عدد القطع: {a.pack_count} مقابل {b.pack_count}"
-
-    # نوع التعبئة: لازم يتطابق تماماً لو الاثنين مكتشفين
-    if a.unit_word is not None and b.unit_word is not None and a.unit_word != b.unit_word:
+    if unit_word_status(a, b) == "conflict":
         return True, f"اختلاف نوع التعبئة: {a.unit_word} مقابل {b.unit_word}"
-
     return False, ""

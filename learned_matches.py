@@ -83,6 +83,23 @@ def lookup(supplier: str | None, item_text: str) -> tuple[dict, int] | None:
     return None
 
 
+def codes_confirmed_for_supplier(supplier: str | None) -> set[str]:
+    """يرجّع كل أرقام الأصناف اللي سبق تأكيدها لنفس المورد، من أي نص وصف
+    (بعكس lookup اللي يحتاج نفس/قريب من نص معيّن). تُستخدم من
+    matching_engine.py كإشارة "هذا المورد باع هذا الصنف قبل" لتوسيع
+    الاسترجاع - مو فلتر حصري، لأن المورد ممكن يبيع صنف جديد أول مرة."""
+    supplier_norm = normalize_supplier(supplier)
+    if not supplier_norm:
+        return set()
+    state = _load_state()
+    prefix = f"{supplier_norm}||"
+    return {
+        entry["matched_item_code"]
+        for key, entry in state["matches"].items()
+        if key.startswith(prefix) and entry.get("matched_item_code")
+    }
+
+
 def record_confirmation(supplier: str | None, item_text: str, ref_item) -> None:
     """يسجّل تأكيد المستخدم اليدوي. لو نفس المفتاح ونفس الصنف من قبل، يزيد
     عداد التأكيد (يرفع الثقة). لو المستخدم صحّح لصنف مختلف عن المحفوظ سابقاً،
