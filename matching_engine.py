@@ -34,7 +34,6 @@ import settings as settings_module
 from item_attributes import (
     ItemAttributes,
     canonicalize_unit_word,
-    check_attribute_conflict,
     extract_attributes,
     pack_count_status,
     size_family,
@@ -184,13 +183,35 @@ def _retrieve_candidate_hits(
     return hits
 
 
+_STRUCTURAL_SOURCES = frozenset({"size", "pack", "unit_word", "unit_field"})
+
+
+def _candidate_priority_tier(sources: set[str]) -> int:
+    """رتبة أولوية (0 = الأعلى) - تُستخدم للترتيب قبل القصّ للسقف الأقصى،
+    عشان خاصية بنيوية شائعة جداً (مثلاً "1 لتر" لوحدها بقائمة ضخمة) ما تملأ
+    السقف على حساب مرشّحين من مصادر أدقّ/أقوى دلالة. الترتيب المطلوب صراحة:
+    تاريخ المورد أولاً، بعده تقاطع خصائص بنيوية متعددة، بعده ماركة+خاصية
+    بنيوية، بعده تشابه اسم حقيقي، وأخيراً خاصية بنيوية وحيدة شائعة."""
+    if "supplier_history" in sources:
+        return 0
+    structural_hits = sources & _STRUCTURAL_SOURCES
+    if len(structural_hits) >= 2:
+        return 1
+    if "brand" in sources and structural_hits:
+        return 2
+    if "name" in sources:
+        return 3
+    return 4  # مصدر بنيوي وحيد بس (مثلاً حجم فقط) - أضعف أولوية، أول من يُقصّ
+
+
 def _rank_and_cap_candidates(hits: dict[int, set[str]]) -> list[int]:
-    """يرتّب المرشّحين المُسترجَعين حسب عدد المصادر المستقلة اللي رشّحتهم
-    (أكثر مصادر = أولوية أعلى)، ويقصّهم لسقف أقصى قبل التقييم الكامل - يحمي
-    الأداء لو خاصية شائعة جداً (مثلاً "1 لتر" بقائمة 35 ألف صنف) رجّعت مئات
-    المرشّحين من مصدر واحد بس (بند 7 بالخطة: تقاطع/ترتيب داخلي بدل الاعتماد
-    على خاصية شائعة وحدها)."""
-    ranked = sorted(hits.keys(), key=lambda idx: len(hits[idx]), reverse=True)
+    """يرتّب المرشّحين حسب رتبة الأولوية (_candidate_priority_tier) أولاً،
+    وعدد المصادر كمعيار ترجيح ثانوي داخل نفس الرتبة، ويقصّهم لسقف أقصى قبل
+    التقييم الكامل - يحمي الأداء لو خاصية شائعة جداً (مثلاً "1 لتر" بقائمة
+    35 ألف صنف) رجّعت مئات المرشّحين من مصدر واحد بس، **بدون** إسقاط
+    مرشّحين حقيقيين (تاريخ مورد/تشابه اسم/تقاطع خصائص) لمجرد الزحمة - هذول
+    دايماً يترتّبون قبل مرشّح "خاصية شائعة وحيدة"."""
+    ranked = sorted(hits.keys(), key=lambda idx: (_candidate_priority_tier(hits[idx]), -len(hits[idx])))
     return ranked[:_MAX_CANDIDATES_BEFORE_SCORING]
 
 
@@ -228,14 +249,14 @@ def _score_one_candidate(
     بسيط". التعارضات البنيوية (حجم/عدد/تعبئة/وحدة) تُجمَّع بسقف واحد
     (hard_cap) يُطبَّق **بعد** جمع كل المكافآت - عشان مكافأة متأخرة (مثلاً
     عدد قطع متطابق) ما "تفكّ" سقف تعارض سابق (مثلاً حجم مختلف) بالغلط.
-    تعارض الماركة له سقف أخف منفصل (brand_cap) لأن استخراج الماركة تخمين
-    ضعيف عمداً."""
+    تعارض الماركة **ليس** له سقف صارم (راجع config.MATCH_BRAND_MISMATCH_PENALTY) -
+    استخراج الماركة تخمين ضعيف بدون قاموس ماركات موثوق، فمعاملته كتعارض
+    بنيوي مؤكد كان يرفض مرشّحين صحيحين بالغلط."""
     name_score = fuzz.token_sort_ratio(line.description, ref_item.name) if line.description else 0.0
     bonus = 0.0
     reason_parts = [f"الاسم {name_score:.0f}%"]
     supported = False
     hard_cap = 100.0
-    brand_cap = 100.0
 
     size_stat = size_status(line_attrs, ref_attrs)
     if size_stat == "agree":
@@ -281,9 +302,11 @@ def _score_one_candidate(
             hard_cap = min(hard_cap, config.MATCH_ATTRIBUTE_CONFLICT_CAP)
             reason_parts.append(f"⚠ اختلاف الوحدة الصريحة: {line.unit} مقابل {ref_item.default_unit}")
 
-    # الماركة - إشارة قوية لو موثوقة (طول معقول بالطرفين)، بس تعارضها ما
-    # يمنع القبول التلقائي بنفس صرامة تعارض بنيوي مؤكد رقمياً (ممكن يكون
-    # خطأ قراءة/OCR بالماركة، مو بالضرورة صنف مختلف فعلاً)
+    # الماركة - إشارة ضعيفة عمداً (استخراج تخميني، أول كلمة غير وصفية
+    # بالنص، بدون قاموس ماركات معروفة أو أي قياس ثقة حقيقي - كلمة نوع منتج
+    # عامة زي "عصير"/"حليب" ممكن تُقرأ كماركة بالغلط). موافقتها Boost خفيف
+    # فقط، واختلافها عقوبة خفيفة تراكمية - **مو سقف صارم يمنع القبول
+    # التلقائي بمفرده**، عشان تخمين ماركة غلط ما يرفض مرشّح صحيح فعلاً.
     if (
         line_attrs.brand
         and ref_attrs.brand
@@ -291,12 +314,12 @@ def _score_one_candidate(
         and len(ref_attrs.brand) >= _MIN_BRAND_TOKEN_LEN
     ):
         if line_attrs.brand == ref_attrs.brand:
-            bonus += 10
-            reason_parts.append("الماركة متطابقة")
+            bonus += 5
+            reason_parts.append("الماركة متطابقة (تخمين)")
             supported = True
         else:
-            brand_cap = min(brand_cap, config.MATCH_BRAND_CONFLICT_CAP)
-            reason_parts.append(f"⚠ اختلاف الماركة (تخمين): {line_attrs.brand} مقابل {ref_attrs.brand}")
+            bonus -= config.MATCH_BRAND_MISMATCH_PENALTY
+            reason_parts.append(f"الماركة مختلفة (تخمين ضعيف): {line_attrs.brand} مقابل {ref_attrs.brand}")
 
     if "supplier_history" in sources:
         bonus += 6
@@ -312,7 +335,7 @@ def _score_one_candidate(
             supported = True
 
     confidence = name_score + bonus
-    confidence = min(confidence, hard_cap, brand_cap)
+    confidence = min(confidence, hard_cap)
 
     # سقف "الاسم بدون دعم" - آخر خطوة، يمنع تشابه اسم عالي صدفة من الوصول
     # لثقة قبول تلقائي بمفرده. تعارض حقيقي أصلاً يبقى تحته من الأسقف أعلاه،
@@ -353,6 +376,57 @@ def _score_all_candidates(
     return candidates
 
 
+def _score_learned_candidate(
+    line: ExtractedLine,
+    line_attrs: ItemAttributes,
+    learned_item: ReferenceItem,
+    confirm_count: int,
+) -> MatchCandidate:
+    """يحسب مرشّح الذاكرة المتعلّمة بنفس فحوصات التعارض البنيوي اللي يمر
+    فيها أي مرشّح عادي (حجم/عدد قطع/تعبئة مستنتجة من الاسم/وحدة صريحة) -
+    عشان ذاكرة قديمة تتعارض مع بيانات الفاتورة الحالية أبداً ما توصل لقبول
+    تلقائي، حتى لو ثقتها الأساسية عالية جداً من كثرة التأكيدات القديمة.
+    الثقة الأساسية (confirm_count) تبقى "الأولوية القوية" المطلوبة بالتصميم -
+    بس تبقى خاضعة لنفس قواعد الأمان، مو محصّنة منها (راجع suggest_candidates:
+    هذا المرشّح يشارك بنفس الترتيب العادل مع الباقي، ما يتصدّر بشكل مطلق)."""
+    ref_attrs = extract_attributes(learned_item.name)
+    confidence = learned_matches.confidence_for_confirm_count(confirm_count)
+    reason_parts = [f"مطابقة سابقة مؤكَّدة ({confirm_count} مرة)"]
+    hard_cap = 100.0
+
+    size_stat = size_status(line_attrs, ref_attrs)
+    if size_stat == "conflict":
+        hard_cap = min(hard_cap, config.MATCH_ATTRIBUTE_CONFLICT_CAP)
+        reason_parts.append(
+            f"⚠ اختلاف الحجم/الوزن: {line_attrs.size_value}{line_attrs.size_unit} مقابل "
+            f"{ref_attrs.size_value}{ref_attrs.size_unit}"
+        )
+
+    pack_stat = pack_count_status(line_attrs, ref_attrs)
+    if pack_stat == "conflict":
+        hard_cap = min(hard_cap, config.MATCH_ATTRIBUTE_CONFLICT_CAP)
+        reason_parts.append(f"⚠ اختلاف عدد القطع: {line_attrs.pack_count} مقابل {ref_attrs.pack_count}")
+
+    unit_word_stat = unit_word_status(line_attrs, ref_attrs)
+    if unit_word_stat == "conflict":
+        hard_cap = min(hard_cap, config.MATCH_ATTRIBUTE_CONFLICT_CAP)
+        reason_parts.append(f"⚠ اختلاف نوع التعبئة: {line_attrs.unit_word} مقابل {ref_attrs.unit_word}")
+
+    line_unit_canon = canonicalize_unit_word(line.unit)
+    ref_unit_canon = canonicalize_unit_word(learned_item.default_unit)
+    if line_unit_canon is not None and ref_unit_canon is not None and line_unit_canon != ref_unit_canon:
+        hard_cap = min(hard_cap, config.MATCH_ATTRIBUTE_CONFLICT_CAP)
+        reason_parts.append(f"⚠ اختلاف الوحدة الصريحة: {line.unit} مقابل {learned_item.default_unit}")
+
+    confidence = min(confidence, hard_cap)
+    return MatchCandidate(
+        item=learned_item,
+        confidence=confidence,
+        reason="، ".join(reason_parts),
+        has_structural_conflict=hard_cap < 100.0,
+    )
+
+
 def suggest_candidates(
     line: ExtractedLine,
     reference: list[ReferenceItem],
@@ -361,60 +435,56 @@ def suggest_candidates(
     top_n: int = 5,
 ) -> list[MatchCandidate]:
     """يرجّع أفضل top_n مرشّحين لعرضهم بنافذة المراجعة. مرشّح الذاكرة
-    المتعلّمة (لو موجود) يحتل المرتبة الأولى **دايماً**، بغض النظر عن رقم
-    ثقته مقارنة بباقي المرشّحين - هذا أولوية بالتصميم (نفس ترتيب أولويات
-    المستخدم الأصلي: مطابقة سابقة مؤكدة قبل أي شي ثاني)، مو مجرد تنافس أرقام
-    بمجموعة واحدة قد يطيح فيها تشابه اسمي عالي صدفة."""
+    المتعلّمة (لو موجود) يحصل على ثقة أساسية عالية (أولوية/boost قوي
+    بالتصميم - راجع learned_matches.confidence_for_confirm_count)، لكنه
+    **يشارك بنفس الترتيب العادل** مع باقي المرشّحين حسب الثقة الفعلية بعد
+    فحص التعارضات البنيوية (_score_learned_candidate) - مو محصّن أو مثبّت
+    بالمرتبة الأولى بشكل مطلق. ذاكرة قديمة تتعارض مع الفاتورة الحالية
+    (حجم/عدد/تعبئة/وحدة مختلف فعلياً) تنزل ثقتها فعلياً، فمرشّح ثاني أسلم
+    وأقوى ممكن يتصدّر بدلها - هذا يمنع enhance_one() من اعتبار ذاكرة
+    متعارضة "أفضل مرشّح" بصمت."""
     if reference_attrs_index is None:
         reference_attrs_index = build_reference_attrs_index(reference)
 
-    learned_candidate: MatchCandidate | None = None
+    line_attrs = extract_attributes(line.description)
+    supplier_confirmed_codes = learned_matches.codes_confirmed_for_supplier(supplier_name)
+    all_candidates = _score_all_candidates(line, reference, reference_attrs_index, supplier_confirmed_codes)
+
     learned = learned_matches.lookup(supplier_name, line.description)
     if learned is not None:
         entry, confirm_count = learned
         learned_item = _find_by_code(reference, entry["matched_item_code"])
         if learned_item is not None:
-            confidence = learned_matches.confidence_for_confirm_count(confirm_count)
-            line_attrs = extract_attributes(line.description)
-            ref_attrs = extract_attributes(learned_item.name)
-            conflict, reason = check_attribute_conflict(line_attrs, ref_attrs)
-            note = f"مطابقة سابقة مؤكَّدة ({confirm_count} مرة)"
-            if conflict:
-                confidence = min(confidence, config.MATCH_ATTRIBUTE_CONFLICT_CAP)
-                note += f" - ⚠ {reason}"
-            learned_candidate = MatchCandidate(
-                item=learned_item, confidence=confidence, reason=note, has_structural_conflict=conflict
-            )
+            learned_candidate = _score_learned_candidate(line, line_attrs, learned_item, confirm_count)
+            # نستبدل أي نسخة ثانية لنفس الصنف رجّعتها المصادر العادية (لو
+            # صار) بالنسخة المعزّزة بالذاكرة - مو نضيفهم مكرّرين لبعض
+            all_candidates = [c for c in all_candidates if c.item.code != learned_candidate.item.code]
+            all_candidates.append(learned_candidate)
 
-    excluded_code = learned_candidate.item.code if learned_candidate else None
-    supplier_confirmed_codes = learned_matches.codes_confirmed_for_supplier(supplier_name)
-    all_candidates = _score_all_candidates(line, reference, reference_attrs_index, supplier_confirmed_codes)
+    all_candidates.sort(key=lambda c: c.confidence, reverse=True)
 
-    # نستبعد مرشّح الذاكرة نفسه من هذي القائمة (يظهر مرة وحدة بس بالأول)،
-    # ونسمح بمرشّح "معطوب" بتعارض خصائص يمر رغم ثقته المقصوصة - سبب الرفض
-    # نفسه معلومة مفيدة للمراجع البشري، ما نبيه يختفي بصمت
+    # نسمح بمرشّح "معطوب" بتعارض خصائص بنيوي، أو مرشّح من تاريخ المورد،
+    # يمر رغم ثقته المنخفضة - سبب الرفض نفسه معلومة مفيدة للمراجع البشري
+    # (أو "المورد باع هذا قبل" إشارة يستاهل يشوفها)، ما نبيهم يختفوا بصمت
     rest = [
         c
         for c in all_candidates
-        if c.item.code != excluded_code
-        and (c.confidence >= config.MIN_SUGGEST_THRESHOLD or c.has_structural_conflict or c.from_supplier_history)
+        if c.confidence >= config.MIN_SUGGEST_THRESHOLD or c.has_structural_conflict or c.from_supplier_history
     ]
-    rest.sort(key=lambda c: c.confidence, reverse=True)
 
     # الصنف الواحد بالمرجع ممكن يتكرر بعدة صفوف (باركود/وحدة مختلفة لكل
     # صف - راجع items.py::_load_from_amnc_xml) - كلها بنفس الاسم فتاخذ نفس
     # درجة التشابه، فتمتلئ قائمة الاقتراحات بنسخ متطابقة الشكل لنفس الصنف
     # بدل بدائل حقيقية مختلفة. نبقي أفضل صف بس لكل رقم صنف.
     seen_codes = set()
-    deduped_rest = []
+    deduped = []
     for c in rest:
         if c.item.code in seen_codes:
             continue
         seen_codes.add(c.item.code)
-        deduped_rest.append(c)
+        deduped.append(c)
 
-    results = ([learned_candidate] if learned_candidate else []) + deduped_rest
-    return results[:top_n]
+    return deduped[:top_n]
 
 
 def enhance_one(
