@@ -1,0 +1,640 @@
+<?xml version="1.0" standalone="yes"?>
+<NewDataSet>
+  <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+      <xs:complexType>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="DOC_MST_TABLE">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="DOC_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="DOC_ID_PO" type="xs:long" minOccurs="0" />
+                <xs:element name="DOC_NO" type="xs:long" minOccurs="0" />
+                <xs:element name="USER_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="AC_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="INV_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="ST_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="SM_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="CE_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="COIN_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="CUS_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="CUS_ARNAME" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_DATE" type="xs:dateTime" minOccurs="0" />
+                <xs:element name="DOC_NOTA" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_NOTA_2" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_NOTA_3" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_RE" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_TYPE" type="xs:long" minOccurs="0" />
+                <xs:element name="DOC_PAY_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_SHABAKH_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_INC_INV_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_DIS_INV_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_DIS_CARD_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_DIS_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_INC_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_TOT_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="VI_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="DOC_EQ" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_TAX_VAT_TYPE" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_TAX_W_PRICE" type="xs:long" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="DOC_DET_TABLE">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="DOC_D_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="DOC_TO_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="DOC_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="DOC__ID_I" type="xs:long" minOccurs="0" />
+                <xs:element name="ST_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="CLS_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="CLS_NO" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_ARNAME" type="xs:string" minOccurs="0" />
+                <xs:element name="CLS_ENNAME" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_D_CLS_BARCODE" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_D_UN_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="DOC_D_UN_NAME" type="xs:string" minOccurs="0" />
+                <xs:element name="CE_ID" type="xs:long" minOccurs="0" />
+                <xs:element name="SM_ID_1" type="xs:long" minOccurs="0" />
+                <xs:element name="DOC_D_QLT" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_D_QLT_FREE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_QTY_ALL" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_D_PRICE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_D_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_D_DIS1_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_D_DIS2_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_D_DIS3_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_D_INC1_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_D_INC2_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_D_INC3_FORIGNVALUE" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_D_DATE_EX" type="xs:dateTime" minOccurs="0" />
+                <xs:element name="DOC_D_DATE_PR" type="xs:dateTime" minOccurs="0" />
+                <xs:element name="DOC_D_NOTA_1" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_D_PATCH_NO" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_D_IS_COLOR" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_D_IS_SIZE" type="xs:string" minOccurs="0" />
+                <xs:element name="DOC_D_IS_SUM" type="xs:long" minOccurs="0" />
+                <xs:element name="DOC_D_TAX" type="xs:double" minOccurs="0" />
+                <xs:element name="DOC_D_IS_OUT" type="xs:long" minOccurs="0" />
+                <xs:element name="DATAMATRIX" type="xs:string" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+      </xs:complexType>
+    </xs:element>
+  </xs:schema>
+  <DOC_MST_TABLE>
+    <DOC_ID>1</DOC_ID>
+    <DOC_ID_PO>1</DOC_ID_PO>
+    <DOC_NO>1</DOC_NO>
+    <USER_ID>1</USER_ID>
+    <AC_ID>0</AC_ID>
+    <INV_ID>0</INV_ID>
+    <ST_ID>1</ST_ID>
+    <SM_ID>0</SM_ID>
+    <CE_ID>0</CE_ID>
+    <COIN_ID>1</COIN_ID>
+    <CUS_ID>0</CUS_ID>
+    <CUS_ARNAME />
+    <DOC_DATE>2026-08-21T18:53:49.842209</DOC_DATE>
+    <DOC_NOTA />
+    <DOC_NOTA_2 />
+    <DOC_NOTA_3 />
+    <DOC_RE />
+    <DOC_TYPE>1</DOC_TYPE>
+    <DOC_PAY_FORIGNVALUE>134.0</DOC_PAY_FORIGNVALUE>
+    <DOC_SHABAKH_FORIGNVALUE>0</DOC_SHABAKH_FORIGNVALUE>
+    <DOC_INC_INV_FORIGNVALUE>0</DOC_INC_INV_FORIGNVALUE>
+    <DOC_DIS_INV_FORIGNVALUE>0</DOC_DIS_INV_FORIGNVALUE>
+    <DOC_DIS_CARD_FORIGNVALUE>0</DOC_DIS_CARD_FORIGNVALUE>
+    <DOC_FORIGNVALUE>134.0</DOC_FORIGNVALUE>
+    <DOC_DIS_FORIGNVALUE>0</DOC_DIS_FORIGNVALUE>
+    <DOC_INC_FORIGNVALUE>0</DOC_INC_FORIGNVALUE>
+    <DOC_TOT_FORIGNVALUE>134.0</DOC_TOT_FORIGNVALUE>
+    <VI_ID>0</VI_ID>
+    <DOC_EQ>1</DOC_EQ>
+    <DOC_TAX_VAT_TYPE />
+    <DOC_TAX_W_PRICE>0</DOC_TAX_W_PRICE>
+  </DOC_MST_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>4962</CLS_ID>
+    <CLS_NO>10742</CLS_NO>
+    <CLS_ARNAME>اكياس لحم روال حفظ الطعام 8/10/12/14/6</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>6287017570359</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>6.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>6.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>4221</CLS_ID>
+    <CLS_NO>98166</CLS_NO>
+    <CLS_ARNAME>العجمي كشنة بصل مقلي 150 غ</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>6287000904178</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>7.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>7.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>6037</CLS_ID>
+    <CLS_NO>11842</CLS_NO>
+    <CLS_ARNAME>العيدان بهارات فلفل احمر 200 جم</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>92ع</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>10.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>10.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>6036</CLS_ID>
+    <CLS_NO>11841</CLS_NO>
+    <CLS_ARNAME>العيدان بهارات منوع 200 جم</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>6287004740178</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>8.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>8.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>6036</CLS_ID>
+    <CLS_NO>11841</CLS_NO>
+    <CLS_ARNAME>العيدان بهارات منوع 200 جم</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>6287004740178</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>8.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>8.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>5559</CLS_ID>
+    <CLS_NO>11355</CLS_NO>
+    <CLS_ARNAME>المراعي عسل طبيعي 500جرام</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>6281007056120</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>33.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>33.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>4464</CLS_ID>
+    <CLS_NO>10219</CLS_NO>
+    <CLS_ARNAME>الوطنية نقانق جبن 350</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE />
+    <DOC_D_UN_ID>0</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>10.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>10.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>4787</CLS_ID>
+    <CLS_NO>10563</CLS_NO>
+    <CLS_ARNAME>انتاج افخاذ دجاج متبله حار 500ج</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>6281102722722</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>9.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>9.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>4787</CLS_ID>
+    <CLS_NO>10563</CLS_NO>
+    <CLS_ARNAME>انتاج افخاذ دجاج متبله حار 500ج</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>6281102722722</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>9.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>9.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>5767</CLS_ID>
+    <CLS_NO>11570</CLS_NO>
+    <CLS_ARNAME>باف مارشملوا 18جرام</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>0011-11570</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>1.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>1.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>3089</CLS_ID>
+    <CLS_NO>8771</CLS_NO>
+    <CLS_ARNAME>برايفت ماكسي مطوية كبير9فوطه</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>5281001316887</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>8.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>8.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>3089</CLS_ID>
+    <CLS_NO>8771</CLS_NO>
+    <CLS_ARNAME>برايفت ماكسي مطوية كبير9فوطه</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>5281001316887</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>8.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>8.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>6036</CLS_ID>
+    <CLS_NO>11841</CLS_NO>
+    <CLS_ARNAME>العيدان بهارات منوع 200 جم</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>6287004740178</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>8.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>8.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+  <DOC_DET_TABLE>
+    <DOC_D_ID>0</DOC_D_ID>
+    <DOC_TO_ID>0</DOC_TO_ID>
+    <DOC_ID>1</DOC_ID>
+    <DOC__ID_I>0</DOC__ID_I>
+    <ST_ID>0</ST_ID>
+    <CLS_ID>4787</CLS_ID>
+    <CLS_NO>10563</CLS_NO>
+    <CLS_ARNAME>انتاج افخاذ دجاج متبله حار 500ج</CLS_ARNAME>
+    <CLS_ENNAME />
+    <DOC_D_CLS_BARCODE>6281102722722</DOC_D_CLS_BARCODE>
+    <DOC_D_UN_ID>1</DOC_D_UN_ID>
+    <DOC_D_UN_NAME>حبة</DOC_D_UN_NAME>
+    <CE_ID>0</CE_ID>
+    <SM_ID_1>0</SM_ID_1>
+    <DOC_D_QLT>1.0</DOC_D_QLT>
+    <DOC_D_QLT_FREE>0</DOC_D_QLT_FREE>
+    <DOC_QTY_ALL>1.0</DOC_QTY_ALL>
+    <DOC_D_PRICE>9.0</DOC_D_PRICE>
+    <DOC_D_FORIGNVALUE>9.0</DOC_D_FORIGNVALUE>
+    <DOC_D_DIS1_FORIGNVALUE>0</DOC_D_DIS1_FORIGNVALUE>
+    <DOC_D_DIS2_FORIGNVALUE>0</DOC_D_DIS2_FORIGNVALUE>
+    <DOC_D_DIS3_FORIGNVALUE>0</DOC_D_DIS3_FORIGNVALUE>
+    <DOC_D_INC1_FORIGNVALUE>0</DOC_D_INC1_FORIGNVALUE>
+    <DOC_D_INC2_FORIGNVALUE>0</DOC_D_INC2_FORIGNVALUE>
+    <DOC_D_INC3_FORIGNVALUE>0</DOC_D_INC3_FORIGNVALUE>
+    <DOC_D_DATE_EX>2026-08-21T18:53:49.842209</DOC_D_DATE_EX>
+    <DOC_D_DATE_PR>2026-08-21T18:53:49.842209</DOC_D_DATE_PR>
+    <DOC_D_NOTA_1 />
+    <DOC_D_PATCH_NO />
+    <DOC_D_IS_COLOR />
+    <DOC_D_IS_SIZE />
+    <DOC_D_IS_SUM>0</DOC_D_IS_SUM>
+    <DOC_D_TAX>0</DOC_D_TAX>
+    <DOC_D_IS_OUT>1</DOC_D_IS_OUT>
+    <DATAMATRIX />
+  </DOC_DET_TABLE>
+</NewDataSet>
