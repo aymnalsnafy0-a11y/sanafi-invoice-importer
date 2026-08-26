@@ -878,6 +878,13 @@ def enhance_one(
         )
         ai_was_deciding_factor = False
     if not candidates:
+        # نفس الإصلاح أدناه (راجع تعليق الفرع else) - صفر مرشّحين محليين
+        # يعني صفر ثقة إطلاقاً، فأي تخمين قديم من items.py::match_line_items
+        # يُمسح هنا أيضاً بدل ما يبقى يوهم بثقة غير موجودة
+        line.matched_item_code = ""
+        line.matched_item_name = ""
+        line.matched_internal_id = ""
+        line.matched_unit_id = ""
         line.needs_review = True
         return
 
@@ -895,6 +902,24 @@ def enhance_one(
     if best.confidence >= thresholds["auto_accept_threshold"] and not ambiguous and not ai_was_deciding_factor:
         _apply_match(line, best.item, best.confidence)
     else:
+        # REAL BUG FIX (اكتُشف 2026-08-27 عبر benchmark بقائمة أصناف حقيقية):
+        # items.py::match_line_items (الأساس، يشتغل قبل هذي الدالة على كل
+        # سطر بدون باركود) عنده مطابق تشابه-اسم مستقل وأضعف (AUTO_MATCH_THRESHOLD
+        # ~80، تشابه اسم فقط بدون فحص حجم/عدد/تعارضات) - ممكن يملأ
+        # matched_item_code بتخمين واثق ظاهرياً (needs_review=False) قبل ما
+        # هذي الدالة (المحرك الأدق) تعيد الحساب من الصفر وتكتشف غموض حقيقي
+        # (مرشّح ثاني قريب، أو تعارض بنيوي). سابقاً: كنا نكتفي بضبط
+        # needs_review=True بدون مسح matched_item_code القديم - فيبقى السطر
+        # بحالة متناقضة (كود موجود + يحتاج مراجعة)، و_populate_table() بـ
+        # app.py يوجّهه لجدول "مطابَقة" (يعتمد فقط bool(matched_item_code))
+        # رغم إن المحرك الذكي فعلياً غير واثق - يخفي شك حقيقي عن المستخدم.
+        # الإصلاح: أي قرار "يحتاج مراجعة" يمسح أي تخمين قديم مسح كامل، بدل
+        # ما يتركه يوهم الواجهة/التصدير بثقة غير موجودة - نفس مبدأ "لا تخمّن"
+        # المطبَّق بكل مكان ثاني بالمشروع.
+        line.matched_item_code = ""
+        line.matched_item_name = ""
+        line.matched_internal_id = ""
+        line.matched_unit_id = ""
         line.match_score = best.confidence
         line.needs_review = True
         if ambiguous:

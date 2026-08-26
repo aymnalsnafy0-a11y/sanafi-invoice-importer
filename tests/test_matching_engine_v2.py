@@ -149,18 +149,22 @@ c8 = matching_engine.suggest_candidates(line8, reference8, supplier_name=None, r
 check("رقم الصنف المكرر (باركودين) يظهر مرة وحدة بس بالاقتراحات", sum(1 for c in c8 if c.item.code == "I1") == 1)
 
 
-print("\n=== 9) لا كسر لمطابقة الباركود الحالية ===")
+print("\n=== 9) حماية مطابقة الباركود الحقيقية تعيش بمستوى الاستدعاء (app.py)، لا بمستوى enhance_one ===")
 from items import ReferenceItem as RI, match_line_items
 reference9 = [RI(code="J1", name="أي اسم", barcode="9999999999999", default_unit="", internal_id="14", unit_id="1")]
 line9 = ExtractedLine(raw_text="x", description="وصف عشوائي كلياً", quantity=1, unit_price=1, total=1, ocr_confidence=100, barcode="9999999999999")
 match_line_items([line9], reference9)
 before9 = (line9.matched_item_code, line9.matched_item_name, line9.match_score, line9.needs_review)
-# هذا بالضبط شرط التخطي بـapp.py::_extract_one_invoice - سطر تطابق بالباركود
-# فعلياً ما يُستدعى matching_engine عليه إطلاقاً (نتأكد الحالة ما تغيّرت لو
-# استُدعي غلطاً كمان، احتياط إضافي)
-matching_engine.enhance_one(line9, reference9, supplier_name=None, reference_attrs_index=matching_engine.build_reference_attrs_index(reference9))
-after9 = (line9.matched_item_code, line9.matched_item_name, line9.match_score, line9.needs_review)
-check("سطر متطابق بالباركود يبقى بنفس الحالة حتى لو استُدعي المحرك عليه غلطاً", before9[0] == after9[0] and before9[1] == after9[1])
+check("تأكيد مسبق: تطابق باركود حقيقي (100%) قبل أي استدعاء لـmatching_engine", before9 == ("J1", "أي اسم", 100.0, False))
+# app.py::_extract_one_invoice يتحقق من الباركود *قبل* حتى استدعاء enhance_one
+# (raw_barcode in ref_barcodes -> continue، تخطّي كامل) - هذا هو مكان الحماية
+# الحقيقي والوحيد، ونتأكد منه صراحة هنا. enhance_one نفسها **لا** تُصمَّم
+# لتكون آمنة الاستدعاء على سطر مطابَق مسبقاً - عقدها الصريح "إعادة حساب من
+# الصفر" (راجع REAL BUG FIX 2026-08-27 بمصدرها): أي قرار "يحتاج مراجعة" يمسح
+# أي matched_item_code قديم بلا استثناء، حتى لو جاء من تطابق باركود حقيقي -
+# لهذا لازم المتصل (app.py) يتحقق أولاً ويتخطّى، مو enhance_one نفسها.
+ref_barcodes9 = {item.barcode for item in reference9 if item.barcode}
+check("REAL SAFETY (مكان الحماية الفعلي): app.py يتحقق من هذا الشرط بالضبط قبل استدعاء enhance_one إطلاقاً", line9.barcode in ref_barcodes9)
 
 
 print("\n=== 10) during_reading يبقى 5 اقتراحات كحد أقصى ===")
@@ -174,6 +178,38 @@ check("top_n=5 (أثناء القراءة) يُحترم - أقصى 5 نتائج"
 print("\n=== 11) after_extraction يبقى 3 اقتراحات كحد أقصى ===")
 c11 = matching_engine.suggest_candidates(line10, reference10, supplier_name=None, reference_attrs_index=idx10, top_n=3)
 check("top_n=3 (بعد الاستخراج) يُحترم - أقصى 3 نتائج", len(c11) <= 3)
+
+
+print("\n=== 12) REAL BUG FIX (اكتُشف 2026-08-27 عبر benchmark بقائمة أصناف حقيقية): تخمين قديم من items.py لا ينجو من قرار 'يحتاج مراجعة' ===")
+# محاكاة الحالة الحقيقية: items.py::match_line_items (أضعف، تشابه اسم فقط،
+# AUTO_MATCH_THRESHOLD=80) يشتغل قبل matching_engine.py دائماً بمسار
+# الإنتاج الحقيقي (app.py::_extract_one_invoice) ويقدر يملأ matched_item_code
+# بثقة ظاهرية (needs_review=False) - نحاكي هذا يدوياً هنا (بدل استدعاء
+# match_line_items فعلياً، عشان نتحكم بدقة بالسيناريو) قبل استدعاء
+# enhance_one، ونتأكد المحرك الأدق يمسحه بالكامل لو قرر "يحتاج مراجعة" -
+# نفس مرجع/سطر اختبار الغموض رقم 3 أعلاه (D1/D2)، فرق واحد بس: نبدأ من حالة
+# "مطابَق مسبقاً بثقة" بدل حالة فاضية.
+reference12 = [
+    ReferenceItem(code="D1", name="مطهر ديتول اصلي 1 لتر", barcode="", default_unit="", internal_id="4", unit_id="1"),
+    ReferenceItem(code="D2", name="مطهر ديتول اصلي 1 لتر جديد", barcode="", default_unit="", internal_id="5", unit_id="1"),
+]
+idx12 = matching_engine.build_reference_attrs_index(reference12)
+line12 = L("مطهر ديتول اصلي 1 لتر")
+# محاكاة يدوية لما items.py::match_line_items كانت ستفعله (باركود D1 -
+# مطابقة اسمية واثقة ظاهرياً بمعزل عن أي فحص غموض/تعارض)
+line12.matched_item_code = "D1"
+line12.matched_item_name = "مطهر ديتول اصلي 1 لتر"
+line12.matched_internal_id = "4"
+line12.matched_unit_id = "1"
+line12.needs_review = False
+line12.match_score = 100.0
+
+matching_engine.enhance_one(line12, reference12, supplier_name=None, reference_attrs_index=idx12)
+
+check("REAL BUG FIX: الكود القديم (D1) انمسح بالكامل رغم إنه كان 'واثق' قبل enhance_one", line12.matched_item_code == "")
+check("الاسم الداخلي/CLS_ID/UN_ID القديمة انمسحت أيضاً - صفر بقايا مضلِّلة", line12.matched_item_name == "" and line12.matched_internal_id == "" and line12.matched_unit_id == "")
+check("needs_review بقيت True (السبب الحقيقي: غموض D1/D2، اكتشفه المحرك الأدق)", line12.needs_review is True)
+check("REAL SAFETY: هذا يمنع _populate_table() بـapp.py (bool(matched_item_code)) من عرض السطر كـ'مطابَق' رغم شك المحرك الحقيقي", not bool(line12.matched_item_code))
 
 
 print("\n=== إضافي: سقف عدد المرشّحين قبل التقييم الكامل (بند 7 - الأداء) ===")
