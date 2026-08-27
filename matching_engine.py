@@ -254,27 +254,77 @@ def _pre_rank_quality_key(line: ExtractedLine, reference: list[ReferenceItem], h
     return (-len(hits[idx]), -name_score)
 
 
+def _guaranteed_identity(idx: int, reference: list[ReferenceItem]) -> tuple:
+    """هوية "نفس الصنف المنطقي" لصف مرجعي - code أولاً (نفس معيار
+    suggest_candidates)، وإلا internal_id إن كان موثوقاً (موجود وغير فارغ)،
+    وإلا الصف يُعامَل كهوية مستقلة عن أي صف ثاني (idx نفسه، فريد ضمن نفس
+    الاستدعاء). Safety Patch #2 (2026-08-28): code الفارغ ("" أو None) لا
+    يُستخدم كمفتاح مشترك أبداً - كان قبل هذا الإصلاح يجمع كل الأصناف
+    *المختلفة* بلا كود مسجَّل تحت نفس المفتاح "" فينهار أحدها فوق الآخر
+    خطأً (انهيار كاذب لصفر علاقة منطقية بينها سوى غياب الكود). **لا** يوجد
+    أي fallback بالاسم - الاسم عمداً غير مستخدم كهوية."""
+    code = reference[idx].code
+    if code:
+        return ("code", code)
+    internal_id = reference[idx].internal_id
+    if internal_id:
+        return ("internal_id", internal_id)
+    return ("row", idx)
+
+
 def _dedupe_guaranteed_by_code(candidate_idxs: list[int], reference: list[ReferenceItem], hits: dict[int, set[str]]) -> list[int]:
-    """يبقي صفاً مرجعياً واحداً بس *للضمان* لكل code فريد - نفس معيار "نفس
-    الصنف المنطقي" المستخدم أصلاً بنهاية suggest_candidates (dedup نهائي
-    بالكود). **مو** dedup بالاسم - أكواد مختلفة بنفس الاسم المطابَق حرفياً
-    تحصل كل واحدة على مكانها الضامن الخاص (تبقى قادرة على المنافسة). الاختيار
-    بين صفوف نفس الكود حتمي (محتوى الصف، مو ترتيبه بالقائمة - Order-Invariance
-    حتى مع تعادل تام): أكثر عدد مصادر مطابقة أولاً، ثم unit_id كفاصل تعادل
-    مستقر. الصفوف الأخرى لنفس الكود لا تُحذف من hits/by_tier - تبقى قابلة
-    للدخول عبر الحصص العادية لاحقاً، فمعلومات بدائل الوحدة لا تضيع."""
-    best_by_code: dict[str, int] = {}
+    """يبقي صفاً مرجعياً واحداً بس *للضمان* لكل هوية صنف منطقي فريدة (انظر
+    _guaranteed_identity) - نفس معيار "نفس الصنف المنطقي" المستخدم أصلاً
+    بنهاية suggest_candidates (dedup نهائي بالكود)، مع fallback آمن لصفوف
+    بلا كود. **مو** dedup بالاسم - أكواد مختلفة (أو هويات مستقلة) بنفس
+    الاسم المطابَق حرفياً تحصل كل واحدة على مكانها الضامن الخاص (تبقى قادرة
+    على المنافسة). الاختيار بين صفوف نفس الهوية حتمي (محتوى الصف، مو ترتيبه
+    بالقائمة - Order-Invariance حتى مع تعادل تام): أكثر عدد مصادر مطابقة
+    أولاً، ثم unit_id كفاصل تعادل مستقر. الصفوف الأخرى لنفس الهوية لا تُحذف
+    من hits/by_tier - تبقى قابلة للدخول عبر الحصص العادية لاحقاً، فمعلومات
+    بدائل الوحدة لا تضيع."""
+    best_by_identity: dict[tuple, int] = {}
     for idx in candidate_idxs:
-        code = reference[idx].code
-        current = best_by_code.get(code)
+        key = _guaranteed_identity(idx, reference)
+        current = best_by_identity.get(key)
         if current is None:
-            best_by_code[code] = idx
+            best_by_identity[key] = idx
             continue
         key_new = (-len(hits[idx]), reference[idx].unit_id)
         key_current = (-len(hits[current]), reference[current].unit_id)
         if key_new < key_current:
-            best_by_code[code] = idx
-    return list(best_by_code.values())
+            best_by_identity[key] = idx
+    return list(best_by_identity.values())
+
+
+_GUARANTEED_STRUCTURAL_SOURCES = {"size", "pack", "unit_word", "unit_field", "brand"}
+
+
+def _guaranteed_overflow_key(idx: int, reference: list[ReferenceItem], hits: dict[int, set[str]], line: ExtractedLine) -> tuple:
+    """مفتاح ترتيب حتمي وquality-aware لقصّ guaranteed لو تجاوز عدد الأصناف
+    المنطقية المختلفة (بعد dedup الهوية) السقف الأقصى العام - يُستخدم فقط
+    بحالة الفيضان النادرة هذي (Safety Patch #2). كل المرشّحين هنا تطابق اسم
+    حرفي (name equality متساوية بينهم)، فالفرق الحقيقي المتاح: (1) عدد
+    المصادر المطابقة الكلي، (2) عدد إشارات structural agreement الفعلية
+    (حجم/عبوة/كلمة وحدة/حقل وحدة/ماركة) ضمن نفس المصادر، (3) تشابه الاسم
+    الخام (fuzz) - الاسم المطبَّع متطابق لكن الخام قد يختلف بمسافات/حالة
+    أحرف بسيطة. آخر فاصل تعادل: حقول محتوى الصف نفسها (code, internal_id,
+    unit_id, barcode, name) - مو idx أو ترتيب القائمة - يبقى Order-Invariant
+    حتى بتعادل تام كامل."""
+    ref_item = reference[idx]
+    sources = hits[idx]
+    structural_agreement = len(sources & _GUARANTEED_STRUCTURAL_SOURCES)
+    name_score = fuzz.token_sort_ratio(line.description, ref_item.name) if line.description else 0.0
+    return (
+        -len(sources),
+        -structural_agreement,
+        -name_score,
+        ref_item.code,
+        ref_item.internal_id,
+        ref_item.unit_id,
+        ref_item.barcode,
+        ref_item.name,
+    )
 
 
 def _rank_and_cap_candidates(
@@ -316,6 +366,16 @@ def _rank_and_cap_candidates(
     # عبر الحصص العادية لاحقاً لو فيه متسع، فمعلومات بدائل الوحدة (unit_id)
     # ما تضيع لمرحلة اختيار الوحدة المستقبلية - فقط الدخول "المضمون" يُرشَّد.
     guaranteed = _dedupe_guaranteed_by_code(guaranteed, reference, hits)
+    # Safety Patch #2 (2026-08-28): حتى بعد dedup الهوية، عدد الأصناف
+    # المنطقية *المختلفة فعلاً* المطابقة اسماً حرفياً قد يتجاوز نظرياً
+    # _MAX_CANDIDATES_BEFORE_SCORING (مثلاً 150 كود مختلف بنفس الاسم) -
+    # يجب أن يبقى len(candidate_indices) <= السقف invariant صريح بلا
+    # استثناء أبداً. القصّ هنا ليس عشوائياً - ترتيب حتمي وquality-aware
+    # (_guaranteed_overflow_key) قبل أي قصّ، مو الاعتماد على ترتيب المرجع
+    # الخام (Order-Invariance محفوظة).
+    if len(guaranteed) > _MAX_CANDIDATES_BEFORE_SCORING:
+        guaranteed = sorted(guaranteed, key=lambda idx: _guaranteed_overflow_key(idx, reference, hits, line))
+        guaranteed = guaranteed[:_MAX_CANDIDATES_BEFORE_SCORING]
 
     by_tier: dict[int, list[int]] = defaultdict(list)
     for idx, sources in hits.items():

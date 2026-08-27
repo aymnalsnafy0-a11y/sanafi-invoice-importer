@@ -203,6 +203,111 @@ check("SAFETY PATCH C: السقف الأقصى العام يبقى محترما�
 check("SAFETY PATCH C: كلا الكودين (BIGCODE1 وBIGCODE2) لسا يقدران يدخلان (dedupe بالكود، مو حذف كود كامل)", {reference9[i].code for i in ranked9} == {"BIGCODE1", "BIGCODE2"})
 
 
+print("\n=== 10) SAFETY PATCH #2 A: code فارغ لا يُستخدم كهوية مشتركة - أصناف مختلفة بلا كود لا تنهار لمرشح واحد ===")
+reference10 = [
+    ReferenceItem(code="", name="صنف بلا كود مسجل 100 جم", barcode=f"NC{i}", default_unit="حبة", internal_id=f"INT{i}", unit_id="1")
+    for i in range(4)
+]
+idx10 = matching_engine.build_reference_attrs_index(reference10)
+line10 = L("صنف بلا كود مسجل 100 جم")
+line10_attrs = item_attributes.extract_attributes(line10.description)
+hits10 = matching_engine._retrieve_candidate_hits(line10, line10_attrs, reference10, idx10, set())
+guaranteed_raw10 = [i for i in hits10 if matching_engine._has_exact_normalized_name_match(line10_attrs, i, idx10)]
+check("تأكيد مسبق: فعلاً 4 صفوف بكود فارغ كلها تطابق اسماً حرفياً", len(guaranteed_raw10) == 4)
+guaranteed_dedup10 = matching_engine._dedupe_guaranteed_by_code(guaranteed_raw10, reference10, hits10)
+check("SAFETY PATCH #2 A: أصناف مختلفة (internal_id مختلف) بكود فارغ لا تنهار لمرشح واحد خطأً", len(guaranteed_dedup10) == 4)
+check("SAFETY PATCH #2 A: كل الـinternal_id الأربعة محفوظة فعلاً بالنتيجة (fallback بالـinternal_id يشتغل)", {reference10[i].internal_id for i in guaranteed_dedup10} == {f"INT{i}" for i in range(4)})
+
+print("\n--- 10ب) نفس الحالة بلا أي هوية إطلاقاً (code وinternal_id فارغين) - كل صف يُعامَل كهوية مستقلة ---")
+reference10b = [
+    ReferenceItem(code="", name="صنف بلا أي هوية 200 جم", barcode="", default_unit="حبة", internal_id="", unit_id="")
+    for _ in range(3)
+]
+idx10b = matching_engine.build_reference_attrs_index(reference10b)
+line10b = L("صنف بلا أي هوية 200 جم")
+line10b_attrs = item_attributes.extract_attributes(line10b.description)
+hits10b = matching_engine._retrieve_candidate_hits(line10b, line10b_attrs, reference10b, idx10b, set())
+guaranteed_raw10b = [i for i in hits10b if matching_engine._has_exact_normalized_name_match(line10b_attrs, i, idx10b)]
+check("تأكيد مسبق: فعلاً 3 صفوف بلا أي هوية كلها تطابق اسماً حرفياً", len(guaranteed_raw10b) == 3)
+guaranteed_dedup10b = matching_engine._dedupe_guaranteed_by_code(guaranteed_raw10b, reference10b, hits10b)
+check("SAFETY PATCH #2 A-fallback: بلا أي هوية موثوقة، كل صف يُعامَل كهوية مستقلة (صفر انهيار كاذب)", len(guaranteed_dedup10b) == 3)
+
+
+print("\n=== 11) SAFETY PATCH #2 B: 150 صنف منطقي مختلف فعلاً (كل واحد code مختلف) - guaranteed لا يتجاوز السقف العام (Hard Cap) أبداً ===")
+reference11 = [
+    ReferenceItem(code=f"UNIQUE{i}", name="صنف فريد التكرار 750 مل", barcode=f"U{i}", default_unit="حبة", internal_id=str(i), unit_id="1")
+    for i in range(150)
+]
+idx11 = matching_engine.build_reference_attrs_index(reference11)
+line11 = L("صنف فريد التكرار 750 مل")
+line11_attrs = item_attributes.extract_attributes(line11.description)
+hits11 = matching_engine._retrieve_candidate_hits(line11, line11_attrs, reference11, idx11, set())
+guaranteed_raw11 = [i for i in hits11 if matching_engine._has_exact_normalized_name_match(line11_attrs, i, idx11)]
+check("تأكيد مسبق: فعلاً 150 كود مختلف كلها تطابق اسماً حرفياً (سيناريو الفيضان الحقيقي)", len(guaranteed_raw11) == 150)
+guaranteed_dedup11 = matching_engine._dedupe_guaranteed_by_code(guaranteed_raw11, reference11, hits11)
+check("تأكيد مسبق: dedup الهوية ما قلّص شي (150 كود مختلف فعلاً، صفر تكرار حقيقي)", len(guaranteed_dedup11) == 150)
+ranked11 = matching_engine._rank_and_cap_candidates(hits11, line11, reference11, line11_attrs, idx11)
+check("SAFETY PATCH #2 B: Hard Cap محترم حتى مع 150 هوية منطقية مختلفة فعلاً (لا استثناء)", len(ranked11) <= matching_engine._MAX_CANDIDATES_BEFORE_SCORING)
+check("SAFETY PATCH #2 B: القصّ فعلاً وصل السقف الأقصى (80) - مو أقل بشكل عشوائي", len(ranked11) == matching_engine._MAX_CANDIDATES_BEFORE_SCORING)
+
+
+print("\n=== 12) SAFETY PATCH #2 C: نفس سيناريو الفيضان (150 كود مختلف) بعد خلط ترتيب المرجع عدة مرات - Hard Cap محترم + نفس الناجين تماماً بمصادر متساوية ===")
+# ملاحظة مهمة (اكتُشفت أثناء بناء هذا الاختبار): بالمسار الكامل الحقيقي
+# (_retrieve_candidate_hits الفعلية)، مصدر "name" نفسه له سقف داخلي على
+# عدد النتائج المرتجعة (rapidfuzz process.extract بحد أقصى) - سلوك تقييد
+# *موجود مسبقاً* بمرحلة الاسترجاع نفسها (مو شيء أضافه Safety Patch)، وهو
+# "scoring/retrieval" محمي صراحة من التعديل بهذا الـpatch. نتيجته: مع 150
+# صف بنفس الاسم *حرفياً*، فقط جزء منها يحصل فعلياً على مصدر "name" ضمن
+# hits - وأيها بالضبط يعتمد على ترتيب المعالجة الداخلي، فيصير عدد المصادر
+# (len(hits[idx])) نفسه غير متساوٍ بين الصفوف حتى لو تطابقت أسماؤها 100%.
+# هذا التفاوت مصدره مرحلة *الاسترجاع*، خارج نطاق _guaranteed_overflow_key.
+# عشان نختبر Order-Invariance لمنطق *هذا الـpatch تحديداً* (القصّ والفرز
+# داخل guaranteed) بمعزل عن هذا التفاوت الموجود مسبقاً بالاسترجاع، نبني
+# hits بأنفسنا هنا بمصادر متساوية تماماً لكل الـ150 صف (محاكاة الحالة
+# الأسوأ الحقيقية: صفوف متطابقة تماماً بكل شيء إلا الكود) - عندها الفاصل
+# الوحيد المتاح لمنطقنا هو الحقول المحتوى-محورة (code...) فقط، وهذا فعلاً
+# ما نتحقق من ثباته عبر الخلط.
+random.seed(7)
+survivor_sets = []
+for trial in range(4):
+    ref_shuffled = list(reference11)
+    random.shuffle(ref_shuffled)
+    idx_s = matching_engine.build_reference_attrs_index(ref_shuffled)
+    line_s = L("صنف فريد التكرار 750 مل")
+    attrs_s = item_attributes.extract_attributes(line_s.description)
+    hits_uniform = {i: {"name", "size", "brand"} for i in range(len(ref_shuffled))}
+    ranked_s = matching_engine._rank_and_cap_candidates(hits_uniform, line_s, ref_shuffled, attrs_s, idx_s)
+    survivor_sets.append(frozenset(ref_shuffled[i].code for i in ranked_s))
+    check(f"محاولة خلط {trial + 1}/4: Hard Cap محترم حتى بعد خلط ترتيب المرجع", len(ranked_s) <= matching_engine._MAX_CANDIDATES_BEFORE_SCORING)
+check("SAFETY PATCH #2 C: بمصادر متساوية (الفاصل الوحيد: محتوى الصف)، مجموعة الأكواد الناجية مطابقة تماماً عبر كل محاولات الخلط - منطق القصّ بهذا الـpatch Order-Invariant فعلياً", len(set(survivor_sets)) == 1)
+
+# وبالمسار الكامل الحقيقي (بتفاوت مصادر الاسترجاع الموجود مسبقاً): نتأكد
+# على الأقل إن Hard Cap يبقى محترماً دائماً (الالتزام الفعلي المطلوب هنا)
+ranked_real_trials = []
+for trial in range(3):
+    ref_shuffled = list(reference11)
+    random.shuffle(ref_shuffled)
+    idx_r = matching_engine.build_reference_attrs_index(ref_shuffled)
+    line_r = L("صنف فريد التكرار 750 مل")
+    attrs_r = item_attributes.extract_attributes(line_r.description)
+    hits_r = matching_engine._retrieve_candidate_hits(line_r, attrs_r, ref_shuffled, idx_r, set())
+    ranked_r = matching_engine._rank_and_cap_candidates(hits_r, line_r, ref_shuffled, attrs_r, idx_r)
+    ranked_real_trials.append(len(ranked_r))
+check("SAFETY PATCH #2 C (مسار حقيقي كامل): Hard Cap محترم بكل محاولات الخلط الثلاث رغم تفاوت مصادر الاسترجاع المسبق", all(n <= matching_engine._MAX_CANDIDATES_BEFORE_SCORING for n in ranked_real_trials))
+
+
+print("\n=== 13) SAFETY PATCH #2 D: حالة multi-unit الحالية (صنف 20 صف نفس code) تبقى سليمة بعد إضافة Hard Cap ===")
+cands13 = matching_engine.suggest_candidates(line7, reference7, reference_attrs_index=idx7, top_n=3)
+check("SAFETY PATCH #2 D: صنف multi-unit (20 صف نفس code) لسا يوصل بثقة عالية بعد إضافة Hard Cap", bool(cands13) and cands13[0].item.code == "MULTI" and cands13[0].confidence >= 95)
+
+
+print("\n=== 14) SAFETY PATCH #2 E: الوطنية/انتاج (الحالتان الحقيقيتان الأصليتان) تبقيان rank 1 بعد كل تعديلات هذا الـpatch ===")
+cands14a = matching_engine.suggest_candidates(line1, reference1, reference_attrs_index=idx1, top_n=3)
+check("SAFETY PATCH #2 E: عائلة 'الوطنية' لسا rank 1 بعد Safety Patch #2", bool(cands14a) and cands14a[0].item.code == "CORRECT" and cands14a[0].confidence >= 95)
+cands14b = matching_engine.suggest_candidates(line3, reference3, reference_attrs_index=idx3, top_n=3)
+check("SAFETY PATCH #2 E: عائلة 'انتاج' لسا rank 1 بعد Safety Patch #2", bool(cands14b) and cands14b[0].item.code == "CORRECT" and cands14b[0].confidence >= 95)
+
+
 print("\n--- summary ---")
 total = len(results)
 passed = sum(1 for _, ok in results if ok)
