@@ -222,8 +222,9 @@ big_reference = [
 big_idx = matching_engine.build_reference_attrs_index(big_reference)
 check("فهرس الحجم فعلاً يجمع كل الـ500 صنف بصندوق واحد (يثبت سيناريو الاختبار)", len(big_idx.by_size_bucket) <= 3)
 big_line = L("صنف عشوائي 250 1 لتر")
-hits = matching_engine._retrieve_candidate_hits(big_line, __import__("item_attributes").extract_attributes(big_line.description), big_reference, big_idx, set())
-ranked = matching_engine._rank_and_cap_candidates(hits)
+big_line_attrs = __import__("item_attributes").extract_attributes(big_line.description)
+hits = matching_engine._retrieve_candidate_hits(big_line, big_line_attrs, big_reference, big_idx, set())
+ranked = matching_engine._rank_and_cap_candidates(hits, big_line, big_reference, big_line_attrs, big_idx)
 check(f"عدد المرشّحين المسترجَعين ({len(hits)}) أكبر من السقف (يثبت الحاجة الفعلية للقص)", len(hits) > matching_engine._MAX_CANDIDATES_BEFORE_SCORING)
 check(f"السقف يُطبَّق فعلياً - العدد النهائي قبل التقييم ({len(ranked)}) لا يتجاوز {matching_engine._MAX_CANDIDATES_BEFORE_SCORING}", len(ranked) <= matching_engine._MAX_CANDIDATES_BEFORE_SCORING)
 

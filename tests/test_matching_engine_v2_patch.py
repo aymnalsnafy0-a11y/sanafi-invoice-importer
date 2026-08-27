@@ -109,7 +109,7 @@ hits2 = matching_engine._retrieve_candidate_hits(line2, line2_attrs, reference2,
 size_only_count = sum(1 for srcs in hits2.values() if srcs == {"size"})
 check(f"تأكيد مسبق: فعلاً فيه أكثر من 80 مرشّح 'حجم فقط' بهذا السيناريو ({size_only_count})", size_only_count > matching_engine._MAX_CANDIDATES_BEFORE_SCORING)
 
-ranked2 = matching_engine._rank_and_cap_candidates(hits2)
+ranked2 = matching_engine._rank_and_cap_candidates(hits2, line2, reference2, line2_attrs, idx2)
 ranked_codes2 = {reference2[i].code for i in ranked2}
 check("REAL BUG FIX: مرشّح الاسم القوي (GOODNAME) ينجو من القصّ رغم زحمة مرشّحي الحجم", "GOODNAME" in ranked_codes2)
 check("REAL BUG FIX: مرشّح تاريخ المورد (GOODSUPP) ينجو من القصّ رغم زحمة مرشّحي الحجم", "GOODSUPP" in ranked_codes2)

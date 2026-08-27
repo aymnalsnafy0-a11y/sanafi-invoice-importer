@@ -94,7 +94,7 @@ hits2 = matching_engine._retrieve_candidate_hits(line2, line2_attrs, reference2,
 size_of_supplier_hits = sum(1 for srcs in hits2.values() if "supplier_history" in srcs)
 check(f"تأكيد مسبق: فعلاً أكثر من 100 مرشّح من مصدر تاريخ المورد ({size_of_supplier_hits})", size_of_supplier_hits > matching_engine._MAX_CANDIDATES_BEFORE_SCORING)
 
-ranked2 = matching_engine._rank_and_cap_candidates(hits2)
+ranked2 = matching_engine._rank_and_cap_candidates(hits2, line2, reference2, line2_attrs, idx2)
 ranked_codes2 = {reference2[i].code for i in ranked2}
 check("REAL BUG FIX: مرشّح الاسم القوي ينجو من القصّ رغم فيضان تاريخ المورد فوق السقف", "STRONGNAME" in ranked_codes2)
 check("السقف الأقصى العام (80) لسا محترم", len(ranked2) <= matching_engine._MAX_CANDIDATES_BEFORE_SCORING)

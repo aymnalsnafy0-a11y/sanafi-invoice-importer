@@ -227,28 +227,89 @@ def _candidate_priority_tier(sources: set[str]) -> int:
 _TIER_QUOTAS = {0: 25, 1: 20, 2: 10, 3: 20}
 
 
-def _rank_and_cap_candidates(hits: dict[int, set[str]]) -> list[int]:
+def _has_exact_normalized_name_match(line_attrs: ItemAttributes, idx: int, reference_index: ReferenceIndex) -> bool:
+    """True لو نص الفاتورة يطابق اسم الصنف المرجعي حرفياً بعد نفس التطبيع
+    المستخدم بكل مكان ثاني بهذا الملف (normalized_text، محسوب مسبقاً
+    بـbuild_reference_attrs_index - صفر تكلفة إضافية هنا). **قاعدة صريحة
+    (REAL BUG FIX 2026-08-28)**: هذا المرشّح يُضمَن دخوله قبل أي معالجة حصص
+    عادية بـ_rank_and_cap_candidates - أبداً ما يسقط بسبب ازدحام رتبته، بغض
+    النظر عن ترتيب القائمة المرجعية أو عدد المرشّحين المنافسين. هذا ضمان
+    "يدخل السباق"، مو "يفوز تلقائياً" - فحص التعارضات البنيوية بـ
+    _score_one_candidate يبقى الحاكم النهائي لثقته الفعلية."""
+    if not line_attrs.normalized_text:
+        return False
+    ref_attrs = reference_index.attrs.get(idx)
+    return bool(ref_attrs) and ref_attrs.normalized_text == line_attrs.normalized_text
+
+
+def _pre_rank_quality_key(line: ExtractedLine, reference: list[ReferenceItem], hits: dict[int, set[str]], idx: int) -> tuple:
+    """مفتاح ترتيب *داخل* نفس رتبة الأولوية (Pre-Rank) - رخيص عمداً (تشابه
+    اسم خام بس، rapidfuzz)، مو التقييم الكامل النهائي (_score_one_candidate:
+    حجم/عدد/وحدة/ماركة/مورد/سعر). عدد المصادر يبقى أول معيار (دليل مستقل
+    أكثر = أقوى)، وتشابه الاسم يكسر التعادل الحقيقي بدل ترتيب الفهرسة الخام -
+    بالضبط هذا كان السبب المؤكَّد (Benchmark حقيقي، عائلتا "الوطنية"
+    و"انتاج") لسقوط مرشّح اسمه 100% مطابق عشوائياً بسبب تعادل عدد المصادر
+    مع 31 مرشّح ثاني بنفس الرتبة."""
+    name_score = fuzz.token_sort_ratio(line.description, reference[idx].name) if line.description else 0.0
+    return (-len(hits[idx]), -name_score)
+
+
+def _rank_and_cap_candidates(
+    hits: dict[int, set[str]],
+    line: ExtractedLine,
+    reference: list[ReferenceItem],
+    line_attrs: ItemAttributes,
+    reference_index: ReferenceIndex,
+) -> list[int]:
     """يقصّ المرشّحين لسقف أقصى قبل التقييم الكامل - يحمي الأداء لو خاصية
     شائعة جداً (مثلاً "1 لتر" بقائمة 35 ألف صنف) رجّعت مئات المرشّحين من
     مصدر واحد بس. **مو ترتيب عالمي بس** - كل رتبة أولوية لها حصة محجوزة
     (_TIER_QUOTAS)، عشان رتبة عالية الأولوية بس فياضة العدد (مثلاً تاريخ
     مورد عنده مئات الأصناف) ما تبتلع السقف كامل وتُسقط مرشّح اسم قوي برتبة
-    أضعف - الحصص تضمن كل رتبة تاخذ نصيبها الأدنى المضمون قبل أي فائض يتوزّع."""
+    أضعف - الحصص تضمن كل رتبة تاخذ نصيبها الأدنى المضمون قبل أي فائض يتوزّع.
+
+    REAL BUG FIX (2026-08-28، Retrieval Failure مؤكَّد بـBenchmark حقيقي
+    مرتين على عائلتين مختلفتين): الترتيب *داخل* كل رتبة كان يعتمد فقط على
+    عدد المصادر المطابقة (len(hits[idx])) - رقم صغير يتعادل بسهولة بين
+    عشرات المرشّحين بنفس العائلة (نفس الماركة، نفس الحجم تقريباً)، فيصير
+    ترتيب الفهرسة الخام (مو أي مؤشر جودة) هو الحكم الفعلي عند التعادل. مع
+    32 مرشّح متعادل يتنافسون على حصة 10 فقط، مرشّح بتطابق اسم 100% حرفي وقع
+    بالمركز 15 وانقُصّ قبل حتى مرحلة التقييم. الإصلاح بجزأين: (1) تطابق اسم
+    حرفي بعد التطبيع يُضمَن دخوله دائماً (_has_exact_normalized_name_match)،
+    بغض النظر عن أي شيء آخر؛ (2) الرتب الفياضة فعلاً عن حصتها (العدد الخام >
+    الحصة) تُرتَّب بمفتاح جودة حقيقي (_pre_rank_quality_key: عدد المصادر ثم
+    تشابه الاسم) بدل عدد المصادر بس - الرتب غير الفياضة تبقى بالترتيب
+    الرخيص السابق (كلهم بيدخلون على أي حال، توفير أداء حقيقي). **لا تغيير
+    بمنطق الحصص/التوزيع/الفائض نفسه** - فقط الترتيب الداخلي *قبل* تطبيقها."""
+    # ضمان صريح (بند 3 بالمواصفة): تطابق اسم حرفي بعد التطبيع لا يسقط بسبب
+    # حصة رتبة أبداً - يُضاف *قبل* أي معالجة حصص عادية
+    guaranteed = [idx for idx in hits if _has_exact_normalized_name_match(line_attrs, idx, reference_index)]
+
     by_tier: dict[int, list[int]] = defaultdict(list)
     for idx, sources in hits.items():
         by_tier[_candidate_priority_tier(sources)].append(idx)
-    for tier_indices in by_tier.values():
-        tier_indices.sort(key=lambda idx: -len(hits[idx]))
 
-    selected: list[int] = []
-    selected_set: set[int] = set()
+    for tier, tier_indices in by_tier.items():
+        quota = _TIER_QUOTAS.get(tier, _MAX_CANDIDATES_BEFORE_SCORING)
+        if len(tier_indices) > quota:
+            # الرتبة فياضة فعلاً عن حصتها - ترتيب بجودة حقيقية يمنع القصّ
+            # العشوائي (المشكلة المؤكَّدة). ترتيب المرجع نفسه ما يعود يؤثر.
+            tier_indices.sort(key=lambda idx: _pre_rank_quality_key(line, reference, hits, idx))
+        else:
+            # كلهم بيدخلون على أي حال - نفس الترتيب الرخيص السابق يكفي،
+            # صفر داعٍ لحساب تشابه اسم إضافي (توفير أداء حقيقي)
+            tier_indices.sort(key=lambda idx: -len(hits[idx]))
+
+    selected: list[int] = list(guaranteed)
+    selected_set: set[int] = set(guaranteed)
     for tier in sorted(by_tier.keys()):
         quota = _TIER_QUOTAS.get(tier, _MAX_CANDIDATES_BEFORE_SCORING)
         remaining_cap = _MAX_CANDIDATES_BEFORE_SCORING - len(selected)
-        take = min(quota, remaining_cap, len(by_tier[tier]))
+        available = [idx for idx in by_tier[tier] if idx not in selected_set]
+        take = min(quota, remaining_cap, len(available))
         if take <= 0:
             continue
-        chosen = by_tier[tier][:take]
+        chosen = available[:take]
         selected.extend(chosen)
         selected_set.update(chosen)
 
@@ -435,7 +496,7 @@ def _score_all_candidates(
 
     line_attrs = extract_attributes(line.description)
     hits = _retrieve_candidate_hits(line, line_attrs, reference, reference_index, supplier_confirmed_codes)
-    candidate_indices = _rank_and_cap_candidates(hits)
+    candidate_indices = _rank_and_cap_candidates(hits, line, reference, line_attrs, reference_index)
 
     candidates = []
     for idx in candidate_indices:
