@@ -41,6 +41,10 @@ from rapidfuzz import fuzz
 _LINE_ALIGN_MIN_SCORE = 45  # عن قصد أقل من عتبة القبول (80%) - هذا فقط لإيجاد
 # أي سطر فاتورة يقابل أي سطر Ground Truth، مو حكم ثقة على صحة المطابقة.
 
+_RETRIEVAL_TOP_K = 15  # مجموعة استرجاع أوسع (منفصلة عن top_n=1/2/3/5 الفعلي
+# بمسار الإنتاج) - لقياس Retrieval Recall@K بمعزل عن جودة الترتيب/القبول.
+_RETRIEVAL_RECALL_KS = (1, 3, 5, 10, 15)
+
 
 # ==================== نماذج البيانات ====================
 
@@ -94,12 +98,20 @@ class PerLineRecord:
     top1_local_reason: str | None = None
     top1_matches_expected: bool | None = None
 
+    # رتبة الصنف الصحيح ضمن مجموعة مرشّحين محليين أوسع (RETRIEVAL_TOP_K) -
+    # None يعني غير موجود إطلاقاً بهذي المجموعة (فشل استرجاع، مو فشل ترتيب -
+    # راجع compute_metrics::retrieval_recall_at_k). منفصل تماماً عن top1_local_*
+    # (اللي يعكس top_n=1 الفعلي المستخدم بمسار الإنتاج الحقيقي)
+    retrieval_rank: int | None = None
+    retrieval_pool_size: int = 0
+
     expected_code: str = ""
     expected_name: str = ""
     expected_barcode: str = ""
     expected_qty: float | None = None
     expected_price: float | None = None
     expected_total: float | None = None
+    expected_unit: str = ""
 
     verdict: str | None = None  # "correct" | "wrong" | "unresolved" | None
     is_false_auto_accept: bool = False
@@ -107,6 +119,11 @@ class PerLineRecord:
     barcode_match: bool | None = None
     qty_match: bool | None = None
     price_match: bool | None = None
+    # مقارنة نصية بسيطة (بعد تطبيع) بين وحدة الفاتورة النهائية ووحدة Ground
+    # Truth - **بديل مؤقت**، مو حل هوية وحدة حقيقي (المحرك الحالي ما يختار
+    # صراحة بين عدة وحدات لنفس الصنف بعد - راجع MISSION الوثيقة). None يعني
+    # غير قابل للمقارنة (أحد الطرفين فاضي)
+    unit_match: bool | None = None
 
 
 # ==================== أدوات مساعدة عامة ====================
@@ -129,6 +146,29 @@ def _floats_close(a: float | None, b: float | None, tol: float = 0.01) -> bool |
     if a is None or b is None:
         return None
     return abs(a - b) <= tol
+
+
+def _normalize_unit_text(u: str) -> str:
+    """تطبيع سطحي بس (فراغات/حالة) - مقارنة نصية مباشرة، مو canonicalize_unit_word
+    الكامل (item_attributes.py) عمداً، عشان هذا المقياس يبقى مستقلاً تماماً
+    عن منطق المحرك نفسه (لا نستخدم دالة المحرك لتقييم المحرك)."""
+    return (u or "").strip().casefold()
+
+
+def _units_match(extracted_unit: str, expected_unit: str) -> bool | None:
+    e, x = _normalize_unit_text(extracted_unit), _normalize_unit_text(expected_unit)
+    if not e or not x:
+        return None
+    return e == x
+
+
+def _retrieval_rank(expected_code: str, pool) -> int | None:
+    """رتبة أول مرشّح كوده == expected_code ضمن pool (مرتّبة مسبقاً بالثقة)،
+    1-indexed. None لو غير موجود إطلاقاً - فشل استرجاع، مو فشل ترتيب."""
+    for i, c in enumerate(pool):
+        if c.item.code == expected_code:
+            return i + 1
+    return None
 
 
 # ==================== 1) اكتشاف الملفات ====================
@@ -441,8 +481,10 @@ def align_lines(extracted: list, original_barcodes: list[str], ground_truth: lis
 
 def build_per_line_records(pairs, missing_truth_idx, extra_extracted_idx, extracted: list,
                             ground_truth: list[GroundTruthLine], original_barcodes: list[str],
-                            top1_by_index: dict, barcode_shortcut: list[bool]) -> list[PerLineRecord]:
+                            top1_by_index: dict, barcode_shortcut: list[bool],
+                            retrieval_by_index: dict | None = None) -> list[PerLineRecord]:
     records: list[PerLineRecord] = []
+    retrieval_by_index = retrieval_by_index or {}
 
     for i, j, method, score in pairs:
         line = extracted[i]
@@ -462,6 +504,7 @@ def build_per_line_records(pairs, missing_truth_idx, extra_extracted_idx, extrac
 
         top1 = top1_by_index.get(i)
         top1_code = top1.item.code if top1 else None
+        retrieval_rank, retrieval_pool_size = retrieval_by_index.get(i, (None, 0))
 
         rec = PerLineRecord(
             row_type="paired", align_method=method, align_score=score,
@@ -484,12 +527,15 @@ def build_per_line_records(pairs, missing_truth_idx, extra_extracted_idx, extrac
             top1_local_confidence=(top1.confidence if top1 else None),
             top1_local_reason=(top1.reason if top1 else None),
             top1_matches_expected=(top1_code == expected_code) if top1 else None,
+            retrieval_rank=retrieval_rank, retrieval_pool_size=retrieval_pool_size,
             expected_code=expected_code, expected_name=gt.name, expected_barcode=gt.barcode,
             expected_qty=gt.quantity, expected_price=gt.unit_price, expected_total=gt.total,
+            expected_unit=gt.unit,
             verdict=verdict, is_false_auto_accept=is_false_auto_accept, is_wrong_but_flagged=is_wrong_but_flagged,
             barcode_match=((original_barcodes[i] or "").strip() == gt.barcode.strip()) if gt.barcode else None,
             qty_match=_floats_close(line.quantity, gt.quantity),
             price_match=_floats_close(line.unit_price, gt.unit_price),
+            unit_match=_units_match(line.unit, gt.unit),
         )
         records.append(rec)
 
@@ -499,6 +545,7 @@ def build_per_line_records(pairs, missing_truth_idx, extra_extracted_idx, extrac
             row_type="missing_ground_truth", truth_index=j,
             expected_code=gt.code, expected_name=gt.name, expected_barcode=gt.barcode,
             expected_qty=gt.quantity, expected_price=gt.unit_price, expected_total=gt.total,
+            expected_unit=gt.unit,
         ))
 
     for i in extra_extracted_idx:
@@ -553,6 +600,20 @@ def compute_metrics(records: list[PerLineRecord]) -> dict:
     qty_n, qty_ok, qty_incomparable = comparable("expected_qty", "extracted_qty")
     price_n, price_ok, price_incomparable = comparable("expected_price", "extracted_price")
 
+    # Retrieval Recall@K - على نفس مجموعة "enhanced" (استُبعد منها تطابق
+    # الباركود المباشر عمداً، لأنه أصلاً لا يمر بمرحلة الاسترجاع/الترتيب -
+    # تضمينه كان سيضخّم Recall بشكل مصطنع لأنه دايماً "رتبة 1" بالتعريف).
+    # retrieval_rank=None يعني الصنف الصحيح غير موجود بمجموعة _RETRIEVAL_TOP_K
+    # المسترجَعة إطلاقاً - فشل استرجاع حقيقي، منفصل تماماً عن فشل الترتيب/القبول
+    retrieval_recall = {}
+    for k in _RETRIEVAL_RECALL_KS:
+        hits = sum(1 for r in enhanced if r.retrieval_rank is not None and r.retrieval_rank <= k)
+        retrieval_recall[f"recall_at_{k}"] = round(hits / len(enhanced), 4) if enhanced else None
+    retrieval_not_found = sum(1 for r in enhanced if r.retrieval_rank is None)
+
+    unit_comparable = [r for r in paired if r.unit_match is not None]
+    unit_correct = [r for r in unit_comparable if r.unit_match]
+
     return {
         "expected_line_count": n_expected,
         "extracted_line_count": n_extracted,
@@ -574,12 +635,28 @@ def compute_metrics(records: list[PerLineRecord]) -> dict:
         "top1_local_match_denominator": len(enhanced),
         "top1_local_match_accuracy": round(len(top1_correct) / len(enhanced), 4) if enhanced else None,
 
+        "retrieval_recall_denominator": len(enhanced),
+        "retrieval_top_k": _RETRIEVAL_TOP_K,
+        "retrieval_not_found_count": retrieval_not_found,
+        **{f"retrieval_{k}": v for k, v in retrieval_recall.items()},
+
         "auto_accepted_count": len(auto_accepted),
         "auto_accept_accuracy": round(len(auto_accept_correct) / len(auto_accepted), 4) if auto_accepted else None,
+        # نفس المفهوم بأسماء المستخدم الصريحة (AUTO-MATCH POLICY):
+        # Coverage = من كل الأسطر المتوقَّعة، كم انقبل تلقائياً (بغض النظر
+        # عن صحته - يقيس "كم قلّ تدخل المستخدم"). Precision = من الأسطر
+        # المقبولة تلقائياً، كم فعلاً صحيح (يقيس "هل نثق بالقبول التلقائي").
+        "auto_match_coverage": round(len(auto_accepted) / n_expected, 4) if n_expected else None,
+        "auto_match_precision": round(len(auto_accept_correct) / len(auto_accepted), 4) if auto_accepted else None,
+        "review_rate": round(len(needs_review) / len(paired), 4) if paired else None,
 
         "false_auto_accept_count": len(false_auto),
         "wrong_but_flagged_count": len(wrong_flagged),
         "needs_review_count": len(needs_review),
+
+        "unit_comparable_count": len(unit_comparable),
+        "unit_correct_count": len(unit_correct),
+        "unit_accuracy": round(len(unit_correct) / len(unit_comparable), 4) if unit_comparable else None,
 
         "qty_comparable_count": qty_n, "qty_correct_count": qty_ok, "qty_incomparable_count": qty_incomparable,
         "qty_accuracy": round(qty_ok / qty_n, 4) if qty_n else None,
@@ -636,7 +713,7 @@ def write_json_report(path: Path, args, started, files: DiscoveredFiles, timing:
             "flags": {
                 "folder": str(args.folder), "limit": args.limit,
                 "with_semantic": args.with_semantic, "skip_vision": args.skip_vision,
-                "seed_learned_matches": args.seed_learned_matches,
+                "seed_learned_matches": args.seed_learned_matches, "hard_mode": args.hard_mode,
             },
             "discovered_files": {
                 "pdf": str(files.pdf_path), "amnc": str(files.amnc_path),
@@ -700,6 +777,7 @@ def build_review_package(records: list[PerLineRecord], metrics: dict, amnc_surve
     return {
         "source_invoice": files.pdf_path.name,
         "with_semantic": args.with_semantic,
+        "hard_mode": args.hard_mode,
         "metrics": metrics,
         "amnc_structure_survey": amnc_survey,
         "ground_truth_cross_check": gt_cross_check,
@@ -738,6 +816,13 @@ def print_console_summary(metrics: dict, amnc_survey: dict, gt_cross_check: dict
     print(f"correct={metrics['correct_count']}  wrong={metrics['wrong_count']}  unresolved={metrics['unresolved_count']}")
     print(f"wrong_but_flagged={metrics['wrong_but_flagged_count']}  needs_review_count={metrics['needs_review_count']}")
     print(f"top1_local_match_accuracy={metrics['top1_local_match_accuracy']}  auto_accept_accuracy={metrics['auto_accept_accuracy']}")
+    print(
+        f"retrieval_recall@1={metrics.get('retrieval_recall_at_1')}  @3={metrics.get('retrieval_recall_at_3')}  "
+        f"@5={metrics.get('retrieval_recall_at_5')}  @10={metrics.get('retrieval_recall_at_10')}  "
+        f"@15={metrics.get('retrieval_recall_at_15')}  not_found={metrics.get('retrieval_not_found_count')}"
+    )
+    print(f"auto_match_coverage={metrics['auto_match_coverage']}  auto_match_precision={metrics['auto_match_precision']}  review_rate={metrics['review_rate']}")
+    print(f"unit_accuracy={metrics['unit_accuracy']}  (comparable={metrics['unit_comparable_count']}, correct={metrics['unit_correct_count']})")
     print(f"barcode_presence_rate={metrics['barcode_presence_rate']}  barcode_accuracy_when_present={metrics['barcode_accuracy_when_present']}")
     print(f"qty_accuracy={metrics['qty_accuracy']}  price_accuracy={metrics['price_accuracy']}")
     print(f"\napi_cost_this_run_usd={api_cost_this_run}")
@@ -758,6 +843,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
                     help="استخدام كاش Vision محفوظ مسبقاً بدل نداء API حقيقي. يفشل بوضوح لو ما فيه كاش.")
     p.add_argument("--seed-learned-matches", action="store_true", default=False,
                     help="ينسخ (قراءة فقط) learned_matches.json الحقيقي للنسخة المعزولة. معطّل افتراضياً (بداية باردة).")
+    p.add_argument("--hard-mode", action="store_true", default=False,
+                    help="يخفي عمداً الباركود ورقم الصنف من كل سطر مستخرَج قبل المطابقة - "
+                         "يجبر المحرك يعتمد فقط على الوصف/المورد/الكمية/الوحدة/السعر والخصائص "
+                         "البنيوية. يثبت هل المحرك فعلاً 'ذكي' أو يعتمد بالأساس على الباركود.")
     return p
 
 
@@ -829,7 +918,17 @@ def main(argv=None):
         if supplier_name is None:
             supplier_name = pr.supplier_name
 
-    original_barcodes = [line.barcode for line in vision_lines]
+    if args.hard_mode:
+        # HARD MODE: نخفي الباركود ورقم الصنف عمداً *قبل* حتى match_line_items
+        # الأساسية - يجبر كل سطر يمر بالمسار الكامل (enhance_one)، صفر
+        # اختصار باركود. original_barcodes (تستخدَم للمحاذاة بـGround Truth
+        # لاحقاً فقط، مو للمطابقة) تُحفَظ *قبل* الإخفاء عمداً.
+        original_barcodes = [line.barcode for line in vision_lines]
+        for line in vision_lines:
+            line.barcode = ""
+            line.matched_item_code = ""
+    else:
+        original_barcodes = [line.barcode for line in vision_lines]
 
     t0 = time.perf_counter()
     match_line_items(vision_lines, reference)
@@ -838,18 +937,23 @@ def main(argv=None):
     ref_barcodes = {item.barcode for item in reference if item.barcode}
     enhance_seconds = reporting_seconds = 0.0
     top1_by_index: dict = {}
+    retrieval_pool_by_index: dict = {}
     barcode_shortcut = [False] * len(vision_lines)
 
     for idx, (line, orig_bc) in enumerate(zip(vision_lines, original_barcodes)):
-        if orig_bc and orig_bc in ref_barcodes:
+        # بوضع HARD MODE: line.barcode نفسها فاضية دائماً (أخفيناها أعلاه)،
+        # فهذا الشرط دائماً False تلقائياً - صفر اختصار باركود ممكن، بدون
+        # حاجة لشرط args.hard_mode إضافي هنا (نفس مسار الإنتاج الحقيقي بالضبط)
+        if line.barcode and line.barcode in ref_barcodes:
             barcode_shortcut[idx] = True
             continue  # نفس سلوك الإنتاج - يُترك كما هو، بدون تقييم مرشّحين
 
         t0 = time.perf_counter()
-        top1 = matching_engine.suggest_candidates(line, reference, supplier_name=supplier_name,
-                                                     reference_attrs_index=ref_index, top_n=1)
+        pool = matching_engine.suggest_candidates(line, reference, supplier_name=supplier_name,
+                                                     reference_attrs_index=ref_index, top_n=_RETRIEVAL_TOP_K)
         reporting_seconds += time.perf_counter() - t0
-        top1_by_index[idx] = top1[0] if top1 else None
+        retrieval_pool_by_index[idx] = pool
+        top1_by_index[idx] = pool[0] if pool else None
 
         t0 = time.perf_counter()
         matching_engine.enhance_one(line, reference, supplier_name=supplier_name,
@@ -864,8 +968,17 @@ def main(argv=None):
     api_cost_this_run = usage_tracker.get_total_spent()
 
     pairs, missing_truth_idx, extra_extracted_idx = align_lines(vision_lines, original_barcodes, ground_truth)
+
+    retrieval_by_index: dict = {}
+    for i, j, _method, _score in pairs:
+        pool = retrieval_pool_by_index.get(i)
+        if pool is None:
+            continue
+        expected_code = ground_truth[j].code.strip()
+        retrieval_by_index[i] = (_retrieval_rank(expected_code, pool), len(pool))
+
     records = build_per_line_records(pairs, missing_truth_idx, extra_extracted_idx, vision_lines, ground_truth,
-                                      original_barcodes, top1_by_index, barcode_shortcut)
+                                      original_barcodes, top1_by_index, barcode_shortcut, retrieval_by_index)
     metrics = compute_metrics(records)
 
     write_json_report(folder / "benchmark_results.json", args, started, files, timing, api_cost_this_run,

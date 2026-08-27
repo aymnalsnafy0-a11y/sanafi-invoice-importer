@@ -174,6 +174,7 @@ metrics6 = bi.compute_metrics(recs6b)
 
 class _Args:
     with_semantic = False
+    hard_mode = False
 
 files6 = bi.DiscoveredFiles(Path("x.pdf"), Path("x.AmnC"), Path("x.xlsx"), Path("x.Amn"), [])
 package = bi.build_review_package(recs6b, metrics6, {"total_classes": 0}, {"reliable": True}, _Args(), files6)
@@ -183,6 +184,45 @@ check("السطر الخطير (false auto accept) موجود بالحزمة م�
 check("flagged_line_count يطابق فعلياً عدد السطور المصفّاة", package["flagged_line_count"] == len(package["flagged_lines"]))
 check("total_line_count يشمل كل السطور (حتى النظيفة)", package["total_line_count"] == 3)
 check("لا توجد أي كلمة 'password' أو 'key' أو 'credential' بمحتوى الحزمة (فحص أساسي لعدم تسرّب أسرار)", "password" not in json.dumps(package).lower() and "credential" not in json.dumps(package).lower())
+
+
+print("\n=== 7) _retrieval_rank / _units_match: أدوات مقاييس Retrieval Recall@K ودقة الوحدة ===")
+
+import matching_engine as _me
+from items import ReferenceItem as _RI
+
+
+def cand(code):
+    return _me.MatchCandidate(item=_RI(code=code, name=f"صنف {code}", barcode="", default_unit="", internal_id=code, unit_id="1"), confidence=50.0, reason="")
+
+
+pool7 = [cand("X1"), cand("X2"), cand("X3")]
+check("REAL FEATURE: الرتبة 1-indexed لصنف موجود بالبداية", bi._retrieval_rank("X1", pool7) == 1)
+check("رتبة صحيحة لصنف بمنتصف القائمة", bi._retrieval_rank("X2", pool7) == 2)
+check("REAL SAFETY: صنف غير موجود بالـpool إطلاقاً -> None (فشل استرجاع حقيقي)", bi._retrieval_rank("NOTHERE", pool7) is None)
+check("قائمة فاضية -> None بأمان", bi._retrieval_rank("X1", []) is None)
+
+check("REAL FEATURE: وحدتان متطابقتان (حتى مع اختلاف حالة الأحرف/فراغات) -> True", bi._units_match("  كرتون ", "كرتون") is True)
+check("وحدتان مختلفتان فعلياً -> False", bi._units_match("كرتون", "حبة") is False)
+check("REAL SAFETY: أحد الطرفين فاضي -> None (غير قابل للمقارنة، مو False)", bi._units_match("", "كرتون") is None and bi._units_match("كرتون", "") is None)
+
+
+print("\n=== 8) compute_metrics: Retrieval Recall@K + unit_accuracy + Auto Match Coverage/Precision (أسماء المستخدم الصريحة) ===")
+recs8 = [
+    # 3 أسطر متزاوجة، غير مختصرة بالباركود - retrieval_rank متفاوت
+    bi.PerLineRecord(row_type="paired", verdict="correct", needs_review=False, was_barcode_shortcut=False, retrieval_rank=1, unit_match=True),
+    bi.PerLineRecord(row_type="paired", verdict="correct", needs_review=False, was_barcode_shortcut=False, retrieval_rank=7, unit_match=False),
+    bi.PerLineRecord(row_type="paired", verdict="unresolved", needs_review=True, was_barcode_shortcut=False, retrieval_rank=None, unit_match=None),
+]
+metrics8 = bi.compute_metrics(recs8)
+check("REAL FEATURE: recall@1 = 1/3 (سطر واحد بس رتبته 1)", metrics8["retrieval_recall_at_1"] == round(1 / 3, 4))
+check("REAL FEATURE: recall@5 = 1/3 (السطر برتبة 7 لسا برّه top5)", metrics8["retrieval_recall_at_5"] == round(1 / 3, 4))
+check("REAL FEATURE: recall@10 = 2/3 (رتبة 7 تدخل ضمن top10)", metrics8["retrieval_recall_at_10"] == round(2 / 3, 4))
+check("retrieval_not_found_count يحسب السطر بلا رتبة (فشل استرجاع كامل) بشكل منفصل", metrics8["retrieval_not_found_count"] == 1)
+check("unit_accuracy يستبعد السطر غير القابل للمقارنة (None) - 1/2 مو 1/3", metrics8["unit_accuracy"] == 0.5 and metrics8["unit_comparable_count"] == 2)
+check("auto_match_coverage = 2/3 (سطرين قبول تلقائي من أصل 3 متوقَّعة)", metrics8["auto_match_coverage"] == round(2 / 3, 4))
+check("auto_match_precision = 2/2 (الاثنين المقبولين تلقائياً كانا صحيحين فعلاً)", metrics8["auto_match_precision"] == 1.0)
+check("review_rate = 1/3 (سطر واحد يحتاج مراجعة من أصل 3 متزاوجة)", metrics8["review_rate"] == round(1 / 3, 4))
 
 
 print("\n--- summary ---")
