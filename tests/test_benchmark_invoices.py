@@ -225,6 +225,31 @@ check("auto_match_precision = 2/2 (الاثنين المقبولين تلقائ�
 check("review_rate = 1/3 (سطر واحد يحتاج مراجعة من أصل 3 متزاوجة)", metrics8["review_rate"] == round(1 / 3, 4))
 
 
+print("\n=== 9) REAL BUG FIX (اكتُشف 2026-08-28 بتشغيل --hard-mode فعلي): items.py._apply_match تملأ line.barcode رجوعاً - قرار الاختصار لازم يعتمد على القيمة *قبل* match_line_items ===")
+# هذا الاختبار يوثّق *لماذا* main() بـbenchmark_invoices.py لازم تفحص متغيّر
+# محفوظ *قبل* match_line_items (matching_barcodes) لقرار اختصار الباركود -
+# مو line.barcode الحالي - لأن match_line_items نفسها (items.py، غير
+# معدَّلة هنا، سلوكها الحقيقي) تملأ line.barcode رجوعاً من الصنف المطابَق
+# لو كان فاضياً، حتى لو التطابق صار بالاسم فقط (بدون أي باركود حقيقي
+# بالفاتورة إطلاقاً) - بالضبط الفخ اللي وقع فيه --hard-mode قبل الإصلاح.
+from items import match_line_items as _match_line_items
+
+reference9 = [_RI(code="P1", name="صنف اختباري فريد جداً", barcode="9999999999", default_unit="حبة", internal_id="1", unit_id="1")]
+line9 = ExtractedLine(raw_text="x", description="صنف اختباري فريد جداً", quantity=1, unit_price=1, total=1, ocr_confidence=100, barcode="")
+matching_barcode_before9 = line9.barcode  # القيمة "الصحيحة" لقرار الاختصار بوضع HARD MODE - فاضية عمداً
+check("تأكيد مسبق: line9.barcode فاضية تماماً قبل match_line_items (محاكاة HARD MODE)", matching_barcode_before9 == "")
+
+_match_line_items([line9], reference9)
+
+check("REAL BUG (بمكتبة items.py الفعلية، غير معدَّلة): تشابه اسم 100% وحده كفى لتأكيد المطابقة", line9.needs_review is False and line9.matched_item_code == "P1")
+check(
+    "REAL BUG FIX CONTEXT: match_line_items تملأ line.barcode رجوعاً من الصنف المطابَق رغم عدم وجود أي باركود حقيقي بالفاتورة - "
+    "لو استخدمنا line.barcode (الحالي، ممتلئ الآن) بدل matching_barcode_before9 (فاضي، محفوظ قبلها) لقرار اختصار الباركود، كنا سنعتبره خطأً مطابقاً بباركود حقيقي",
+    line9.barcode == "9999999999" and matching_barcode_before9 == "",
+)
+check("REAL FIX: القرار الصحيح (استخدام matching_barcode_before9 المحفوظ) يبقى صحيحاً - فاضي، صفر اختصار زائف", not (matching_barcode_before9 and matching_barcode_before9 in {"9999999999"}))
+
+
 print("\n--- summary ---")
 total = len(results)
 passed = sum(1 for _, ok in results if ok)

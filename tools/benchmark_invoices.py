@@ -918,17 +918,33 @@ def main(argv=None):
         if supplier_name is None:
             supplier_name = pr.supplier_name
 
+    # original_barcodes = الباركود الحقيقي كما استخرجته Vision فعلياً - يُستخدم
+    # فقط للمحاذاة بـGround Truth (align_lines) والتقارير (extracted_barcode_original) -
+    # يبقى بقيمته الحقيقية *دائماً*، حتى بوضع HARD MODE (نريد نعرف هل Vision
+    # قرأ الباركود صح أو لا، بغض النظر عن وضع الاختبار).
+    original_barcodes = [line.barcode for line in vision_lines]
+
     if args.hard_mode:
-        # HARD MODE: نخفي الباركود ورقم الصنف عمداً *قبل* حتى match_line_items
-        # الأساسية - يجبر كل سطر يمر بالمسار الكامل (enhance_one)، صفر
-        # اختصار باركود. original_barcodes (تستخدَم للمحاذاة بـGround Truth
-        # لاحقاً فقط، مو للمطابقة) تُحفَظ *قبل* الإخفاء عمداً.
-        original_barcodes = [line.barcode for line in vision_lines]
+        # HARD MODE: نخفي الباركود ورقم الصنف عمداً عن *قرار المطابقة* لكل
+        # الأسطر (حتى الأسطر اللي فعلاً عندها باركود حقيقي مطابق بالقاعدة) -
+        # matching_barcodes منفصلة تماماً عن original_barcodes لهذا السبب
+        # بالضبط. REAL BUG FIX (اكتُشف 2026-08-28 بتشغيل HARD MODE فعلي على
+        # بيانات حقيقية): لو استخدمنا original_barcodes نفسها لقرار الاختصار،
+        # الأسطر اللي أصلاً عندها باركود حقيقي كانت "تهرب" لاختصار الباركود
+        # زي وضع العادي بالضبط - يبطل الغرض الكامل من --hard-mode (يفترض
+        # يجبر *كل* سطر يمر بالمسار الكامل، صفر اختصار ممكن بأي حال).
+        matching_barcodes = [""] * len(vision_lines)
         for line in vision_lines:
             line.barcode = ""
             line.matched_item_code = ""
+            line.matched_item_name = ""
+            line.matched_internal_id = ""
+            line.matched_unit_id = ""
+            line.needs_review = True
+            line.match_score = 0.0
+            line.match_reason = ""
     else:
-        original_barcodes = [line.barcode for line in vision_lines]
+        matching_barcodes = original_barcodes
 
     t0 = time.perf_counter()
     match_line_items(vision_lines, reference)
@@ -940,11 +956,20 @@ def main(argv=None):
     retrieval_pool_by_index: dict = {}
     barcode_shortcut = [False] * len(vision_lines)
 
-    for idx, (line, orig_bc) in enumerate(zip(vision_lines, original_barcodes)):
-        # بوضع HARD MODE: line.barcode نفسها فاضية دائماً (أخفيناها أعلاه)،
-        # فهذا الشرط دائماً False تلقائياً - صفر اختصار باركود ممكن، بدون
-        # حاجة لشرط args.hard_mode إضافي هنا (نفس مسار الإنتاج الحقيقي بالضبط)
-        if line.barcode and line.barcode in ref_barcodes:
+    for idx, (line, orig_bc) in enumerate(zip(vision_lines, matching_barcodes)):
+        # REAL BUG FIX (اكتُشف 2026-08-28 بتشغيل HARD MODE فعلي): لازم نفحص
+        # orig_bc (matching_barcodes، المحفوظ *قبل* match_line_items) لا
+        # line.barcode الحالي - نفس آلية app.py::_extract_one_invoice
+        # بالضبط. السبب: _apply_match()
+        # بـitems.py يملأ line.barcode من الصنف المطابَق لو كان فاضياً
+        # (matched.barcode and not line.barcode) - بوضع HARD MODE نفرّغ
+        # line.barcode عمداً *قبل* match_line_items، فلو الاسم وحده كفى
+        # (تشابه ≥AUTO_MATCH_THRESHOLD) لتأكيد مطابقة أساسية، line.barcode
+        # يمتلئ رجوعاً بباركود الصنف المطابَق - رغم إن الفاتورة ما ذكرت أي
+        # باركود إطلاقاً بوضع HARD MODE! فحص line.barcode هنا كان يخلي هذا
+        # السطر "يهرب" لاختصار الباركود بدل يمر بالمسار الكامل enhance_one -
+        # يبطل الغرض الكامل من --hard-mode لهذا السطر بالذات.
+        if orig_bc and orig_bc in ref_barcodes:
             barcode_shortcut[idx] = True
             continue  # نفس سلوك الإنتاج - يُترك كما هو، بدون تقييم مرشّحين
 
