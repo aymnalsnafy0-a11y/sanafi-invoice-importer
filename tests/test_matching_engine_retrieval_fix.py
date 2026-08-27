@@ -16,9 +16,10 @@
 import io
 import random
 import sys
+from pathlib import Path
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-sys.path.insert(0, r"D:\scanar\invoice_importer")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 results = []
 
@@ -144,6 +145,62 @@ matching_engine.enhance_one(line6, reference6, reference_attrs_index=idx6, allow
 check("REAL SAFETY: القبول التلقائي (لو صار) يذهب للصنف الصحيح فعلاً، مو أي منافس بنفس العائلة", line6.matched_item_code in ("CORRECT", ""))
 if line6.matched_item_code:
     check("تأكيد: الكود المقبول تلقائياً هو فعلاً الصحيح", line6.matched_item_code == "CORRECT")
+
+
+print("\n=== 7) SAFETY PATCH (2026-08-28) A: صنف واحد بنفس code، 20 صف (وحدة/باركود مختلف لكل صف)، "
+      "كلها اسم مطابق حرفياً - ما يستهلك 20 مكان ضامن ===")
+reference7 = [
+    ReferenceItem(code="MULTI", name="صنف متعدد الوحدات 500 جم", barcode=f"BC{i}",
+                  default_unit="حبة", internal_id=str(i), unit_id=str(i))
+    for i in range(20)
+]
+idx7 = matching_engine.build_reference_attrs_index(reference7)
+line7 = L("صنف متعدد الوحدات 500 جم")
+line7_attrs = item_attributes.extract_attributes(line7.description)
+hits7 = matching_engine._retrieve_candidate_hits(line7, line7_attrs, reference7, idx7, set())
+guaranteed_raw7 = [i for i in hits7 if matching_engine._has_exact_normalized_name_match(line7_attrs, i, idx7)]
+check("تأكيد مسبق: فعلاً كل الـ20 صف تطابق اسماً حرفياً (سيناريو الانفجار قبل الإصلاح)", len(guaranteed_raw7) == 20)
+guaranteed_dedup7 = matching_engine._dedupe_guaranteed_by_code(guaranteed_raw7, reference7, hits7)
+check("SAFETY PATCH A: بعد الـdedupe، صف واحد بس مضمون لنفس الكود (مو 20)", len(guaranteed_dedup7) == 1)
+check("SAFETY PATCH A: الصف المختار فعلاً من نفس الكود MULTI", reference7[guaranteed_dedup7[0]].code == "MULTI")
+# الصفوف الأخرى لسا موجودة كاملة بـhits (لم تُحذف) - معلومات بدائل الوحدة محفوظة
+check("SAFETY PATCH A: باقي الصفوف (بدائل الوحدة) لسا موجودة كاملة بـhits - ما انحذفت من البنية", len(hits7) == 20)
+# ومنطقياً يبقى قادر يوصل بالنتيجة النهائية عبر suggest_candidates
+cands7 = matching_engine.suggest_candidates(line7, reference7, reference_attrs_index=idx7, top_n=3)
+check("SAFETY PATCH A: الصنف يوصل بالنتيجة النهائية وبثقة عالية رغم الـdedupe", bool(cands7) and cands7[0].item.code == "MULTI" and cands7[0].confidence >= 95)
+
+
+print("\n=== 8) SAFETY PATCH B: عدة أكواد مختلفة بنفس الاسم المطابَق حرفياً - كل كود يحصل على مكانه الضامن ===")
+reference8 = [
+    ReferenceItem(code=f"CODE{i}", name="صنف مكرر بأكواد مختلفة 250 مل", barcode=f"BC{i}",
+                  default_unit="حبة", internal_id=str(i), unit_id="1")
+    for i in range(5)
+]
+idx8 = matching_engine.build_reference_attrs_index(reference8)
+line8 = L("صنف مكرر بأكواد مختلفة 250 مل")
+line8_attrs = item_attributes.extract_attributes(line8.description)
+hits8 = matching_engine._retrieve_candidate_hits(line8, line8_attrs, reference8, idx8, set())
+guaranteed_raw8 = [i for i in hits8 if matching_engine._has_exact_normalized_name_match(line8_attrs, i, idx8)]
+check("تأكيد مسبق: فعلاً 5 أكواد مختلفة كلها تطابق اسماً حرفياً", len(guaranteed_raw8) == 5)
+guaranteed_dedup8 = matching_engine._dedupe_guaranteed_by_code(guaranteed_raw8, reference8, hits8)
+check("SAFETY PATCH B: كل الأكواد الـ5 المختلفة تحتفظ بمكانها الضامن - لا حذف بمجرد تطابق الاسم", len(guaranteed_dedup8) == 5)
+check("SAFETY PATCH B: الأكواد المضمونة هي فعلاً الـ5 الأصلية بالضبط", {reference8[i].code for i in guaranteed_dedup8} == {f"CODE{i}" for i in range(5)})
+
+
+print("\n=== 9) SAFETY PATCH C: عدد كبير جداً من الصفوف المطابقة اسماً (150 صف، أكواد مختلطة) - السقف العام يبقى محترماً ===")
+reference9 = (
+    [ReferenceItem(code="BIGCODE1", name="صنف ضخم التكرار 1 كغم", barcode=f"A{i}", default_unit="حبة", internal_id=str(i), unit_id=str(i)) for i in range(80)]
+    + [ReferenceItem(code="BIGCODE2", name="صنف ضخم التكرار 1 كغم", barcode=f"B{i}", default_unit="حبة", internal_id=str(i), unit_id=str(i)) for i in range(70)]
+)
+idx9 = matching_engine.build_reference_attrs_index(reference9)
+line9 = L("صنف ضخم التكرار 1 كغم")
+line9_attrs = item_attributes.extract_attributes(line9.description)
+hits9 = matching_engine._retrieve_candidate_hits(line9, line9_attrs, reference9, idx9, set())
+guaranteed_raw9 = [i for i in hits9 if matching_engine._has_exact_normalized_name_match(line9_attrs, i, idx9)]
+check("تأكيد مسبق: فعلاً 150 صف تطابق اسماً حرفياً (أكبر بكثير من السقف العام 80)", len(guaranteed_raw9) == 150)
+ranked9 = matching_engine._rank_and_cap_candidates(hits9, line9, reference9, line9_attrs, idx9)
+check("SAFETY PATCH C: السقف الأقصى العام يبقى محترماً حتى مع 150 صف مطابق اسماً حرفياً", len(ranked9) <= matching_engine._MAX_CANDIDATES_BEFORE_SCORING)
+check("SAFETY PATCH C: كلا الكودين (BIGCODE1 وBIGCODE2) لسا يقدران يدخلان (dedupe بالكود، مو حذف كود كامل)", {reference9[i].code for i in ranked9} == {"BIGCODE1", "BIGCODE2"})
 
 
 print("\n--- summary ---")

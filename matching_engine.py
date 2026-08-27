@@ -254,6 +254,29 @@ def _pre_rank_quality_key(line: ExtractedLine, reference: list[ReferenceItem], h
     return (-len(hits[idx]), -name_score)
 
 
+def _dedupe_guaranteed_by_code(candidate_idxs: list[int], reference: list[ReferenceItem], hits: dict[int, set[str]]) -> list[int]:
+    """يبقي صفاً مرجعياً واحداً بس *للضمان* لكل code فريد - نفس معيار "نفس
+    الصنف المنطقي" المستخدم أصلاً بنهاية suggest_candidates (dedup نهائي
+    بالكود). **مو** dedup بالاسم - أكواد مختلفة بنفس الاسم المطابَق حرفياً
+    تحصل كل واحدة على مكانها الضامن الخاص (تبقى قادرة على المنافسة). الاختيار
+    بين صفوف نفس الكود حتمي (محتوى الصف، مو ترتيبه بالقائمة - Order-Invariance
+    حتى مع تعادل تام): أكثر عدد مصادر مطابقة أولاً، ثم unit_id كفاصل تعادل
+    مستقر. الصفوف الأخرى لنفس الكود لا تُحذف من hits/by_tier - تبقى قابلة
+    للدخول عبر الحصص العادية لاحقاً، فمعلومات بدائل الوحدة لا تضيع."""
+    best_by_code: dict[str, int] = {}
+    for idx in candidate_idxs:
+        code = reference[idx].code
+        current = best_by_code.get(code)
+        if current is None:
+            best_by_code[code] = idx
+            continue
+        key_new = (-len(hits[idx]), reference[idx].unit_id)
+        key_current = (-len(hits[current]), reference[current].unit_id)
+        if key_new < key_current:
+            best_by_code[code] = idx
+    return list(best_by_code.values())
+
+
 def _rank_and_cap_candidates(
     hits: dict[int, set[str]],
     line: ExtractedLine,
@@ -284,6 +307,15 @@ def _rank_and_cap_candidates(
     # ضمان صريح (بند 3 بالمواصفة): تطابق اسم حرفي بعد التطبيع لا يسقط بسبب
     # حصة رتبة أبداً - يُضاف *قبل* أي معالجة حصص عادية
     guaranteed = [idx for idx in hits if _has_exact_normalized_name_match(line_attrs, idx, reference_index)]
+    # Safety Patch (2026-08-28): نفس الصنف المنطقي (code) يتكرر بالمرجع
+    # الحقيقي بعدة صفوف (وحدة/باركود مختلف لكل صف) - أحياناً كلها بنص اسم
+    # مطابق حرفياً. بدون هذا الفلتر، صنف واحد بـ20 صف كان يستهلك 20 مكان
+    # "ضامن" (حتى يتجاوز السقف العام نظرياً) بلا أي فائدة حقيقية - نفس
+    # المعيار المستخدم أصلاً بنهاية suggest_candidates لتعريف "نفس الصنف".
+    # الصفوف الأخرى لنفس الكود لا تُحذف من hits/by_tier - تبقى قابلة للدخول
+    # عبر الحصص العادية لاحقاً لو فيه متسع، فمعلومات بدائل الوحدة (unit_id)
+    # ما تضيع لمرحلة اختيار الوحدة المستقبلية - فقط الدخول "المضمون" يُرشَّد.
+    guaranteed = _dedupe_guaranteed_by_code(guaranteed, reference, hits)
 
     by_tier: dict[int, list[int]] = defaultdict(list)
     for idx, sources in hits.items():
