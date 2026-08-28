@@ -133,7 +133,7 @@ print("\n=== 4) قاعدة الأمان المحافظة: AI وحده ما يُ�
 weak_support_candidate = C("A", 90, reason="الاسم 90%")  # صفر إشارات "متطابق" - دعم ضعيف
 local_list_a = [weak_support_candidate, C("B", 40, reason="الاسم 40%")]
 ai_result_a = semantic_matcher.SemanticRerankResult(selected_code="A", confidence=95, reason="نفس المعنى بصياغة مختلفة", ambiguous=False)
-merged_a, deciding_a = matching_engine._merge_semantic_result(local_list_a, ai_result_a, AUTO_ACCEPT)
+merged_a, deciding_a = matching_engine._merge_semantic_result(local_list_a, local_list_a, ai_result_a, AUTO_ACCEPT)
 best_a = next(c for c in merged_a if c.item.code == "A")
 check("الثقة بعد البوست فعلاً عدّت العتبة (90+8=98>=95)", best_a.confidence >= AUTO_ACCEPT)
 check("REAL SAFETY: ai_was_deciding_factor=True لأن الدعم المحلي ضعيف -> يُرفض القبول التلقائي رغم الرقم النهائي", deciding_a is True)
@@ -142,7 +142,7 @@ check("REAL SAFETY: ai_was_deciding_factor=True لأن الدعم المحلي �
 strong_support_candidate = C("A", 92, reason="الاسم 80%، الحجم/الوزن متطابق، عدد القطع متطابق")
 local_list_b = [strong_support_candidate, C("B", 40, reason="الاسم 40%")]
 ai_result_b = semantic_matcher.SemanticRerankResult(selected_code="A", confidence=95, reason="نفس الصنف بالضبط", ambiguous=False)
-merged_b, deciding_b = matching_engine._merge_semantic_result(local_list_b, ai_result_b, AUTO_ACCEPT)
+merged_b, deciding_b = matching_engine._merge_semantic_result(local_list_b, local_list_b, ai_result_b, AUTO_ACCEPT)
 best_b = next(c for c in merged_b if c.item.code == "A")
 check("الثقة بعد البوست عدّت العتبة (92+8=100)", best_b.confidence >= AUTO_ACCEPT)
 check("REAL POLICY: ai_was_deciding_factor=False لوجود دعم محلي قوي (إشارتين متطابقتين) -> القبول التلقائي مسموح", deciding_b is False)
@@ -151,20 +151,22 @@ check("REAL POLICY: ai_was_deciding_factor=False لوجود دعم محلي قو
 conflicted_candidate = C("A", 35, reason="⚠ اختلاف الحجم/الوزن: 400جم مقابل 1800جم", has_structural_conflict=True)
 local_list_c = [conflicted_candidate]
 ai_result_c = semantic_matcher.SemanticRerankResult(selected_code="A", confidence=100, reason="متأكد جداً", ambiguous=False)
-merged_c, deciding_c = matching_engine._merge_semantic_result(local_list_c, ai_result_c, AUTO_ACCEPT)
+merged_c, deciding_c = matching_engine._merge_semantic_result(local_list_c, local_list_c, ai_result_c, AUTO_ACCEPT)
 best_c = next(c for c in merged_c if c.item.code == "A")
 check("REAL SAFETY: تعارض بنيوي حقيقي -> السقف (40) يبقى نافذاً حتى مع ثقة AI=100", best_c.confidence <= config.MATCH_ATTRIBUTE_CONFLICT_CAP)
 check("النتيجة أبداً ما توصل لعتبة القبول التلقائي رغم اختيار AI الواثق", deciding_c is False and best_c.confidence < AUTO_ACCEPT)
 
 # 4د) AI ambiguous=True -> صفر بوست مهما كانت ثقته الرقمية
 ai_result_d = semantic_matcher.SemanticRerankResult(selected_code="A", confidence=99, reason="مو متأكد", ambiguous=True)
-merged_d, deciding_d = matching_engine._merge_semantic_result([C("A", 90, reason="الاسم 90%")], ai_result_d, AUTO_ACCEPT)
+local_list_d = [C("A", 90, reason="الاسم 90%")]
+merged_d, deciding_d = matching_engine._merge_semantic_result(local_list_d, local_list_d, ai_result_d, AUTO_ACCEPT)
 best_d = next(c for c in merged_d if c.item.code == "A")
 check("REAL SAFETY: AI نفسه أعلن ambiguous=True -> صفر بوست بغض النظر عن رقم الثقة", best_d.confidence == 90)
 
 # 4هـ) دفاع مضاعف: AI يختار كوداً غير موجود بالقائمة المحلية أصلاً
 ai_result_e = semantic_matcher.SemanticRerankResult(selected_code="NOTLOCAL", confidence=99, reason="", ambiguous=False)
-merged_e, deciding_e = matching_engine._merge_semantic_result([C("A", 50, reason="")], ai_result_e, AUTO_ACCEPT)
+local_list_e = [C("A", 50, reason="")]
+merged_e, deciding_e = matching_engine._merge_semantic_result(local_list_e, local_list_e, ai_result_e, AUTO_ACCEPT)
 check("REAL SAFETY (دفاع مضاعف): كود AI غير موجود بالقائمة المحلية -> القائمة ترجع بدون تغيير", [c.item.code for c in merged_e] == ["A"] and deciding_e is False)
 
 
@@ -227,7 +229,15 @@ correct_rank7 = full_pool7.index(correct_candidate7)
 check(f"تأكيد مسبق: الصنف الصحيح فعلاً برتبة ضعيفة محلياً (رتبة {correct_rank7}, تحت top_n=2 المطلوب للعرض)", correct_rank7 >= 2)
 
 original_suggest_candidates = matching_engine.suggest_candidates
+original_build_wide_pool = matching_engine._build_wide_pool_for_semantic
+# Semantic Visibility (Safety Patch #4، 2026-08-28): AI يبني shortlist من
+# wide_pool (_build_wide_pool_for_semantic)، مو local_pool (suggest_candidates)
+# مباشرة - نموّه الاثنين بنفس البيانات عشان الاختبار يبقى يمثّل واقع الدالة
+# الحقيقية بدل الآلية القديمة المُستبدَلة. نموّه _build_wide_pool_for_semantic
+# نفسها (مو _score_all_candidates) عشان نتحكم بالمُدخَل مباشرة بمعزل عن
+# تنويع العائلة/الماركة (له اختبارات مخصّصة منفصلة - راجع بند 3ب).
 matching_engine.suggest_candidates = lambda *a, **k: full_pool7[: k.get("top_n", 5)]
+matching_engine._build_wide_pool_for_semantic = lambda *a, **k: list(full_pool7)
 
 captured7 = {}
 
@@ -242,6 +252,7 @@ def recording_rerank_finds_correct(*args, **kwargs):
 semantic_matcher.rerank = recording_rerank_finds_correct
 final7, deciding7 = matching_engine.semantic_enhance_candidates(L("وصف بصياغة بعيدة عن اسم القاعدة"), [], top_n=2)
 matching_engine.suggest_candidates = original_suggest_candidates
+matching_engine._build_wide_pool_for_semantic = original_build_wide_pool
 semantic_matcher.rerank = _original_rerank
 
 check(
@@ -258,6 +269,7 @@ big_pool8 = [C(f"P{i}", 90 - i, reason=f"الاسم {90-i}%") for i in range(20)
 check("تأكيد مسبق: فعلاً أكثر من 15 مرشّح بالمجموع", len(big_pool8) > config.SEMANTIC_RERANK_SHORTLIST_SIZE)
 
 matching_engine.suggest_candidates = lambda *a, **k: big_pool8[: k.get("top_n", 5)]
+matching_engine._build_wide_pool_for_semantic = lambda *a, **k: list(big_pool8)
 
 captured8 = {}
 
@@ -270,6 +282,7 @@ def recording_rerank_counts(*args, **kwargs):
 semantic_matcher.rerank = recording_rerank_counts
 final8, _ = matching_engine.semantic_enhance_candidates(L("وصف عام"), [], top_n=3)
 matching_engine.suggest_candidates = original_suggest_candidates
+matching_engine._build_wide_pool_for_semantic = original_build_wide_pool
 semantic_matcher.rerank = _original_rerank
 
 check(

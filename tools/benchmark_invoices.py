@@ -105,6 +105,14 @@ class PerLineRecord:
     retrieval_rank: int | None = None
     retrieval_pool_size: int = 0
 
+    # رتبة الصنف الصحيح ضمن القائمة الموسّعة اللي يشوفها Semantic AI فعلياً
+    # (matching_engine._build_wide_pool_for_semantic - بعد dedup+تنويع
+    # العائلة/الماركة، Safety Patch #4 2026-08-28) - مختلفة عن retrieval_rank
+    # أعلاه (غير مُنوَّعة، تُظهر الازدحام الخام). None يعني غير موجود حتى
+    # بالقائمة الموسّعة (فشل استرجاع حقيقي، مو مجرد ازدحام تنويع).
+    semantic_visible_rank: int | None = None
+    semantic_visible_pool_size: int = 0
+
     expected_code: str = ""
     expected_name: str = ""
     expected_barcode: str = ""
@@ -482,9 +490,11 @@ def align_lines(extracted: list, original_barcodes: list[str], ground_truth: lis
 def build_per_line_records(pairs, missing_truth_idx, extra_extracted_idx, extracted: list,
                             ground_truth: list[GroundTruthLine], original_barcodes: list[str],
                             top1_by_index: dict, barcode_shortcut: list[bool],
-                            retrieval_by_index: dict | None = None) -> list[PerLineRecord]:
+                            retrieval_by_index: dict | None = None,
+                            semantic_visible_by_index: dict | None = None) -> list[PerLineRecord]:
     records: list[PerLineRecord] = []
     retrieval_by_index = retrieval_by_index or {}
+    semantic_visible_by_index = semantic_visible_by_index or {}
 
     for i, j, method, score in pairs:
         line = extracted[i]
@@ -505,6 +515,7 @@ def build_per_line_records(pairs, missing_truth_idx, extra_extracted_idx, extrac
         top1 = top1_by_index.get(i)
         top1_code = top1.item.code if top1 else None
         retrieval_rank, retrieval_pool_size = retrieval_by_index.get(i, (None, 0))
+        semantic_visible_rank, semantic_visible_pool_size = semantic_visible_by_index.get(i, (None, 0))
 
         rec = PerLineRecord(
             row_type="paired", align_method=method, align_score=score,
@@ -528,6 +539,7 @@ def build_per_line_records(pairs, missing_truth_idx, extra_extracted_idx, extrac
             top1_local_reason=(top1.reason if top1 else None),
             top1_matches_expected=(top1_code == expected_code) if top1 else None,
             retrieval_rank=retrieval_rank, retrieval_pool_size=retrieval_pool_size,
+            semantic_visible_rank=semantic_visible_rank, semantic_visible_pool_size=semantic_visible_pool_size,
             expected_code=expected_code, expected_name=gt.name, expected_barcode=gt.barcode,
             expected_qty=gt.quantity, expected_price=gt.unit_price, expected_total=gt.total,
             expected_unit=gt.unit,
@@ -611,6 +623,17 @@ def compute_metrics(records: list[PerLineRecord]) -> dict:
         retrieval_recall[f"recall_at_{k}"] = round(hits / len(enhanced), 4) if enhanced else None
     retrieval_not_found = sum(1 for r in enhanced if r.retrieval_rank is None)
 
+    # Semantic-visible Recall@K (Safety Patch #4، 2026-08-28): نفس فكرة
+    # Retrieval Recall@K أعلاه، لكن على القائمة المنوَّعة اللي يشوفها
+    # Semantic AI فعلياً (matching_engine._build_wide_pool_for_semantic) -
+    # مقياس منفصل يقيس أثر بند 1+2 (رؤية أوسع + تنويع) تحديداً، بمعزل عن
+    # الاسترجاع الخام غير المنوَّع.
+    semantic_visible_recall = {}
+    for k in _RETRIEVAL_RECALL_KS:
+        hits = sum(1 for r in enhanced if r.semantic_visible_rank is not None and r.semantic_visible_rank <= k)
+        semantic_visible_recall[f"recall_at_{k}"] = round(hits / len(enhanced), 4) if enhanced else None
+    semantic_visible_not_found = sum(1 for r in enhanced if r.semantic_visible_rank is None)
+
     unit_comparable = [r for r in paired if r.unit_match is not None]
     unit_correct = [r for r in unit_comparable if r.unit_match]
 
@@ -639,6 +662,10 @@ def compute_metrics(records: list[PerLineRecord]) -> dict:
         "retrieval_top_k": _RETRIEVAL_TOP_K,
         "retrieval_not_found_count": retrieval_not_found,
         **{f"retrieval_{k}": v for k, v in retrieval_recall.items()},
+
+        "semantic_visible_recall_denominator": len(enhanced),
+        "semantic_visible_not_found_count": semantic_visible_not_found,
+        **{f"semantic_visible_{k}": v for k, v in semantic_visible_recall.items()},
 
         "auto_accepted_count": len(auto_accepted),
         "auto_accept_accuracy": round(len(auto_accept_correct) / len(auto_accepted), 4) if auto_accepted else None,
@@ -821,6 +848,11 @@ def print_console_summary(metrics: dict, amnc_survey: dict, gt_cross_check: dict
         f"@5={metrics.get('retrieval_recall_at_5')}  @10={metrics.get('retrieval_recall_at_10')}  "
         f"@15={metrics.get('retrieval_recall_at_15')}  not_found={metrics.get('retrieval_not_found_count')}"
     )
+    print(
+        f"semantic_visible_recall@1={metrics.get('semantic_visible_recall_at_1')}  @3={metrics.get('semantic_visible_recall_at_3')}  "
+        f"@5={metrics.get('semantic_visible_recall_at_5')}  @10={metrics.get('semantic_visible_recall_at_10')}  "
+        f"@15={metrics.get('semantic_visible_recall_at_15')}  not_found={metrics.get('semantic_visible_not_found_count')}"
+    )
     print(f"auto_match_coverage={metrics['auto_match_coverage']}  auto_match_precision={metrics['auto_match_precision']}  review_rate={metrics['review_rate']}")
     print(f"unit_accuracy={metrics['unit_accuracy']}  (comparable={metrics['unit_comparable_count']}, correct={metrics['unit_correct_count']})")
     print(f"barcode_presence_rate={metrics['barcode_presence_rate']}  barcode_accuracy_when_present={metrics['barcode_accuracy_when_present']}")
@@ -954,6 +986,7 @@ def main(argv=None):
     enhance_seconds = reporting_seconds = 0.0
     top1_by_index: dict = {}
     retrieval_pool_by_index: dict = {}
+    semantic_visible_pool_by_index: dict = {}
     barcode_shortcut = [False] * len(vision_lines)
 
     for idx, (line, orig_bc) in enumerate(zip(vision_lines, matching_barcodes)):
@@ -994,8 +1027,17 @@ def main(argv=None):
         retrieval_scored = matching_engine._score_all_candidates(line, reference, ref_index, supplier_confirmed_codes)
         retrieval_scored.sort(key=lambda c: c.confidence, reverse=True)
         retrieval_pool = retrieval_scored[:_RETRIEVAL_TOP_K]
+        # Semantic-visible Recall@K (بند 3، Safety Patch #4، 2026-08-28):
+        # القائمة الحقيقية اللي يشوفها Semantic AI فعلياً (بعد dedup+تنويع
+        # العائلة/الماركة - matching_engine._build_wide_pool_for_semantic)،
+        # منفصلة عن retrieval_pool أعلاه (غير مُنوَّعة) - تقيس أثر بند 1+2
+        # تحديداً. صفر تغيير على matching_engine.py الإنتاجي - فقط قياس.
+        semantic_visible_pool = matching_engine._build_wide_pool_for_semantic(
+            line, reference, ref_index, supplier_name
+        )
         reporting_seconds += time.perf_counter() - t0
         retrieval_pool_by_index[idx] = retrieval_pool
+        semantic_visible_pool_by_index[idx] = semantic_visible_pool
         top1_by_index[idx] = pool[0] if pool else None
 
         t0 = time.perf_counter()
@@ -1013,15 +1055,19 @@ def main(argv=None):
     pairs, missing_truth_idx, extra_extracted_idx = align_lines(vision_lines, original_barcodes, ground_truth)
 
     retrieval_by_index: dict = {}
+    semantic_visible_by_index: dict = {}
     for i, j, _method, _score in pairs:
-        pool = retrieval_pool_by_index.get(i)
-        if pool is None:
-            continue
         expected_code = ground_truth[j].code.strip()
-        retrieval_by_index[i] = (_retrieval_rank(expected_code, pool), len(pool))
+        pool = retrieval_pool_by_index.get(i)
+        if pool is not None:
+            retrieval_by_index[i] = (_retrieval_rank(expected_code, pool), len(pool))
+        sv_pool = semantic_visible_pool_by_index.get(i)
+        if sv_pool is not None:
+            semantic_visible_by_index[i] = (_retrieval_rank(expected_code, sv_pool), len(sv_pool))
 
     records = build_per_line_records(pairs, missing_truth_idx, extra_extracted_idx, vision_lines, ground_truth,
-                                      original_barcodes, top1_by_index, barcode_shortcut, retrieval_by_index)
+                                      original_barcodes, top1_by_index, barcode_shortcut, retrieval_by_index,
+                                      semantic_visible_by_index)
     metrics = compute_metrics(records)
 
     write_json_report(folder / "benchmark_results.json", args, started, files, timing, api_cost_this_run,

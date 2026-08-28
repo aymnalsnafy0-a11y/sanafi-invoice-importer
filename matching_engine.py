@@ -46,6 +46,15 @@ from line_item import ExtractedLine
 
 _NAME_POOL_SIZE = 30  # مرشّحين بالتشابه الاسمي الخام - مصدر واحد من عدة مصادر الآن، مو الوحيد
 _MAX_CANDIDATES_BEFORE_SCORING = 80  # سقف المجموع بعد دمج كل المصادر، قبل التقييم الكامل (بند 7)
+
+# Semantic Visibility (2026-08-28، Safety Patch #4): سقف صريح "منظم" لقائمة
+# Semantic AI الموسّعة - **لا** يمس _MAX_CANDIDATES_BEFORE_SCORING ولا
+# SEMANTIC_RERANK_SHORTLIST_SIZE (حجم ما يُرسَل فعلياً لـAPI، أصغر من هذا -
+# راجع _build_shortlist_for_semantic) ولا أي سقف/عتبة UI. فقط الحد الأقصى
+# لعدد المرشّحين الحقيقيين (من _score_all_candidates، صفر اختراع) اللي
+# تُبنى منها قائمة AI الموسّعة *قبل* التنويع.
+_SEMANTIC_WIDE_POOL_SIZE = 30
+_SEMANTIC_WIDE_POOL_MAX_PER_FAMILY = 3  # يمنع ماركة/عائلة واحدة من ابتلاع القائمة الموسّعة (بند 2: تشبّع)
 _SIZE_BUCKET_LOG_STEP = math.log(1.05)  # نفس نسبة تسامح 5% المستخدمة بـitem_attributes.size_status
 _MIN_BRAND_TOKEN_LEN = 3  # حد أدنى لطول الماركة عشان "نثق" فيها بما يكفي للاسترجاع/المكافأة/العقوبة
 
@@ -854,6 +863,85 @@ def needs_semantic_rerank(candidates: list[MatchCandidate]) -> bool:
     return _should_try_semantic_rerank(candidates)
 
 
+def _diversity_family_key(candidate: MatchCandidate) -> str:
+    """مفتاح "عائلة/ماركة" لصنف مرجعي - يُستخدم فقط لتنويع القائمة الموسّعة
+    (بند 2). الماركة المخمَّنة (attrs.brand) أولاً لو موثوقة، وإلا أقوى
+    كلمة محتوى بالاسم (_content_tokens، نفس آلية بند 5 Safety Patch #3)،
+    وإلا كود الصنف نفسه (يعني يُعامَل كعائلة مستقلة - لا يتزاحم مع أي صنف
+    ثاني على حصته)."""
+    attrs = extract_attributes(candidate.item.name)
+    if attrs.brand and len(attrs.brand) >= _MIN_BRAND_TOKEN_LEN:
+        return attrs.brand
+    content = _content_tokens(attrs)
+    if content:
+        return sorted(content)[0]
+    return candidate.item.code
+
+
+def _dedupe_and_diversify(
+    scored: list[MatchCandidate], limit: int, max_per_family: int
+) -> list[MatchCandidate]:
+    """بند 2 (Safety Patch #4، 2026-08-28، Benchmark حقيقي): بدون هذا،
+    عائلة/ماركة واحدة كبيرة بالكتالوج (مثلاً 5 أصناف "يومي" مختلفة، أو نفس
+    الصنف مكرَّر 3 صفوف بسبب وحدات بيع مختلفة) كانت تستهلك أغلب القائمة
+    الموسّعة قبل حتى وصول مرشّح صحيح من عائلة أقل تكراراً - اكتُشف فعلياً
+    (Benchmark فاتورة المراعي: 'بسكويت اولكر فينجر 70جم' يحتل 3 مراتب متتالية
+    بالقائمة الخام لمجرد 3 صفوف وحدة/باركود لنفس الصنف).
+
+    خطوتان: (1) dedup بالكود - نفس الصنف المنطقي (وحدات/باركودات مختلفة)
+    يبقى صفاً واحداً بأفضل ثقة له (نفس معيار suggest_candidates). (2) تنويع
+    بالعائلة/الماركة - حد أقصى max_per_family لكل مفتاح، بترتيب الثقة، مع
+    تعبئة أي مقاعد فاضية من الفائض المؤجَّل لو التنوع الحقيقي أقل من الحد
+    (ما نضيّع مكاناً فاضياً تعسفاً). **لا تغيير على الثقة نفسها ولا على أي
+    عتبة/quota إنتاجية أخرى** - فقط ترتيب/اختيار القائمة الموسّعة لـSemantic."""
+    best_by_code: dict[str, MatchCandidate] = {}
+    for c in scored:
+        current = best_by_code.get(c.item.code)
+        if current is None or c.confidence > current.confidence:
+            best_by_code[c.item.code] = c
+    deduped = sorted(best_by_code.values(), key=lambda c: -c.confidence)
+
+    family_counts: dict[str, int] = defaultdict(int)
+    selected: list[MatchCandidate] = []
+    deferred: list[MatchCandidate] = []
+    for c in deduped:
+        if len(selected) >= limit:
+            break
+        key = _diversity_family_key(c)
+        if family_counts[key] < max_per_family:
+            selected.append(c)
+            family_counts[key] += 1
+        else:
+            deferred.append(c)
+
+    for c in deferred:
+        if len(selected) >= limit:
+            break
+        selected.append(c)
+
+    return selected[:limit]
+
+
+def _build_wide_pool_for_semantic(
+    line: ExtractedLine,
+    reference: list[ReferenceItem],
+    reference_attrs_index: ReferenceIndex,
+    supplier_name: str | None,
+) -> list[MatchCandidate]:
+    """قائمة موسّعة *لـSemantic AI فقط* (بند 1، Safety Patch #4، 2026-08-28):
+    تشمل مرشّحين حقيقيين من الاسترجاع حتى لو ثقتهم المحلية تحت عتبة عرض UI
+    (config.MIN_SUGGEST_THRESHOLD) - **لا تؤثر على UI ولا على قواعد القبول
+    التلقائي إطلاقاً**، فقط تعطي AI صورة أوسع/أدق لتحليلها لما لا يوجد Match
+    قوي محلياً (تُستدعى فقط من semantic_enhance_candidates بعد
+    _should_try_semantic_rerank، نفس سياسة التفعيل الموجودة أصلاً - صفر
+    تغيير عليها). كل مرشّح هنا جاء فعلياً من _score_all_candidates (نفس
+    شبكة الاسترجاع/التقييم الحقيقية المستخدمة بكل مكان ثانٍ - صفر اختراع
+    أصناف)، بعد dedup+تنويع (_dedupe_and_diversify، بند 2)."""
+    supplier_confirmed_codes = learned_matches.codes_confirmed_for_supplier(supplier_name)
+    all_scored = _score_all_candidates(line, reference, reference_attrs_index, supplier_confirmed_codes)
+    return _dedupe_and_diversify(all_scored, _SEMANTIC_WIDE_POOL_SIZE, _SEMANTIC_WIDE_POOL_MAX_PER_FAMILY)
+
+
 def _build_shortlist_for_semantic(
     candidates: list[MatchCandidate], limit: int | None = None
 ) -> list[MatchCandidate]:
@@ -932,6 +1020,7 @@ def _has_strong_local_support(candidate: MatchCandidate) -> bool:
 
 def _merge_semantic_result(
     local_candidates: list[MatchCandidate],
+    wide_candidates: list[MatchCandidate],
     ai_result: semantic_matcher.SemanticRerankResult,
     auto_accept_threshold: float,
 ) -> tuple[list[MatchCandidate], bool]:
@@ -939,8 +1028,20 @@ def _merge_semantic_result(
     ai_was_deciding_factor). العلَم الثاني = True فقط لو AI كان **السبب
     الوحيد** لعبور عتبة القبول التلقائي (المرشّح كان تحتها محلياً، وما فيه
     أدلة محلية قوية داعمة كافية) - بهذا الإصدار الأول، هذي الحالة تبقى
-    تحتاج مراجعة بشرية إلزامياً (قرار محافظ متعمَّد، راجع enhance_one)."""
-    selected = next((c for c in local_candidates if c.item.code == ai_result.selected_code), None)
+    تحتاج مراجعة بشرية إلزامياً (قرار محافظ متعمَّد، راجع enhance_one).
+
+    Semantic Visibility (بند 1، Safety Patch #4، 2026-08-28): AI يختار من
+    wide_candidates (القائمة الموسّعة اللي شافها فعلياً - قد تشمل مرشّحين
+    تحت عتبة عرض UI)، مو local_candidates وحدها - عشان اختياره لصنف صحيح
+    لكن ضعيف الثقة محلياً ما يُرفض بصمت لمجرد إنه غير موجود بالقائمة
+    الأضيق. **لكن** local_candidates تبقى الأساس المُرجَع/المعروض فعلياً -
+    مرشّح من wide_candidates فقط (غير موجود أصلاً بـlocal_candidates، يعني
+    ثقته المحلية كانت تحت عتبة UI) لا يُضاف للقائمة المُرجَعة إلا لو ثقته
+    *بعد* بوست AI تعبر **نفس عتبة العرض بالضبط** المستخدمة بـsuggest_candidates
+    (MIN_SUGGEST_THRESHOLD أو تعارض بنيوي أو تاريخ مورد) - نفس القاعدة
+    الموجودة أصلاً، مو قاعدة أضعف جديدة. AI "يشوف" أكثر لتحليل أفضل، هذا لا
+    يعني UI "يعرض" أكثر تلقائياً."""
+    selected = next((c for c in wide_candidates if c.item.code == ai_result.selected_code), None)
     if selected is None:
         # دفاع مضاعف - matching_engine ما يفترض صحة رد semantic_matcher عمياً
         # حتى لو فحصه هو نفسه أصلاً (طبقتان أمان أفضل من طبقة وحدة)
@@ -950,6 +1051,19 @@ def _merge_semantic_result(
     local_hard_cap = config.MATCH_ATTRIBUTE_CONFLICT_CAP if selected.has_structural_conflict else 100.0
     was_below_threshold_locally = selected.confidence < auto_accept_threshold
     boosted_confidence = min(selected.confidence + boost, local_hard_cap, 100.0)
+
+    was_in_local_pool = any(c.item.code == selected.item.code for c in local_candidates)
+    if not was_in_local_pool:
+        clears_ui_display_bar = (
+            boosted_confidence >= config.MIN_SUGGEST_THRESHOLD
+            or selected.has_structural_conflict
+            or selected.from_supplier_history
+        )
+        if not clears_ui_display_bar:
+            # AI حلّله فعلاً (استُخدم بتحليل بقية المرشّحين وربما تجنّب
+            # اختيار مرشّح خاطئ آخر)، لكن ثقته النهائية ما زالت أضعف من
+            # عتبة عرض UI - يبقى مخفياً عن القائمة المعروضة، بلا استثناء
+            return local_candidates, False
 
     ai_was_deciding_factor = (
         was_below_threshold_locally
@@ -1005,7 +1119,15 @@ def semantic_enhance_candidates(
 
     thresholds = settings_module.get_settings()
     line_attrs = extract_attributes(line.description)
-    shortlist = _build_shortlist_for_semantic(local_pool)
+    # Semantic Visibility (بند 1، Safety Patch #4، 2026-08-28): وصلنا هنا
+    # فقط لأن local_pool (محكوم بعتبة عرض UI) ضعيف/غامض فعلاً
+    # (_should_try_semantic_rerank أعلاه) - AI يبني shortlist من wide_pool
+    # (مرشّحون حقيقيون من الاسترجاع، منوَّعون، حتى لو تحت عتبة UI) بدل
+    # local_pool وحدها، عشان مرشّح صحيح رتبته منخفضة محلياً (مثلاً 13) ما
+    # يُحجَب عن AI بصمت. القائمة *المُرجَعة* تبقى محكومة بنفس عتبة UI (راجع
+    # _merge_semantic_result) - هذا يوسّع ما يشوفه AI، مو ما يعرضه UI.
+    wide_pool = _build_wide_pool_for_semantic(line, reference, reference_attrs_index, supplier_name)
+    shortlist = _build_shortlist_for_semantic(wide_pool)
 
     ai_inputs = []
     for c in shortlist:
@@ -1042,7 +1164,7 @@ def semantic_enhance_candidates(
         return local_pool[:top_n], False
 
     merged, ai_was_deciding_factor = _merge_semantic_result(
-        local_pool, ai_result, thresholds["auto_accept_threshold"]
+        local_pool, wide_pool, ai_result, thresholds["auto_accept_threshold"]
     )
     return merged[:top_n], ai_was_deciding_factor
 
