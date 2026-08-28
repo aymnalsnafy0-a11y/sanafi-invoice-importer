@@ -20,3 +20,10 @@ __pycache__/
 # مدخلات Benchmark حقيقية (فاتورة/تسعير/كتالوج صنف فعلي للعميل) + نواتجه -
 # بيانات عمل حقيقية، أبداً ما تُرفع
 test_invoices/
+
+# نواتج مختبر Promptfoo المحلية (بيانات فواتير حقيقية مُستخرَجة + نتائج
+# تشغيل) - مو كود، تُنشأ محلياً بـpromptfoo/generate_dataset.py
+promptfoo/tests.json
+promptfoo/results.json
+promptfoo/node_modules/
+

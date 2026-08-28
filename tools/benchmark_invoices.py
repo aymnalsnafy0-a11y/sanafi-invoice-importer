@@ -976,8 +976,26 @@ def main(argv=None):
         t0 = time.perf_counter()
         pool = matching_engine.suggest_candidates(line, reference, supplier_name=supplier_name,
                                                      reference_attrs_index=ref_index, top_n=_RETRIEVAL_TOP_K)
+        # مقياس Retrieval Recall@K منفصل عمداً عن pool أعلاه (المستخدَم فقط
+        # لـtop1_by_index - محاكاة الواجهة الحقيقية بالضبط). REAL BUG FIX
+        # (2026-08-28، بعد إصلاح 3 أنماط استرجاع حقيقية على فاتورة المراعي):
+        # pool يمر بفلتر عرض MIN_SUGGEST_THRESHOLD (نفس ما يشوفه المستخدم
+        # فعلياً بنافذة المراجعة) - مرشّح دخل شبكة الاسترجاع فعلاً
+        # (matching_engine._retrieve_candidate_hits نجح، الصنف بمجموعة
+        # المرشّحين بعد القصّ) لكن ثقته النهائية وقعت تحت عتبة العرض كان
+        # يظهر "not_found" بمقياس Retrieval رغم إن الاسترجاع نجح فعلياً -
+        # يخلط بين فشل استرجاع حقيقي وفشل عتبة عرض، عكس تعريف المقياس
+        # الموثَّق أعلاه بالضبط ("منفصل تماماً عن top1_local_* اللي يعكس
+        # top_n=1 الفعلي المستخدم بمسار الإنتاج"). retrieval_pool هنا يستخدم
+        # _score_all_candidates مباشرة (بلا فلتر عتبة) - نفس الاسترجاع/التقييم
+        # الحقيقي، فقط بلا قصّ العرض. صفر تغيير على matching_engine.py نفسه
+        # أو على ما يشوفه المستخدم الحقيقي (pool/top1_by_index لم يتغيّرا).
+        supplier_confirmed_codes = learned_matches.codes_confirmed_for_supplier(supplier_name)
+        retrieval_scored = matching_engine._score_all_candidates(line, reference, ref_index, supplier_confirmed_codes)
+        retrieval_scored.sort(key=lambda c: c.confidence, reverse=True)
+        retrieval_pool = retrieval_scored[:_RETRIEVAL_TOP_K]
         reporting_seconds += time.perf_counter() - t0
-        retrieval_pool_by_index[idx] = pool
+        retrieval_pool_by_index[idx] = retrieval_pool
         top1_by_index[idx] = pool[0] if pool else None
 
         t0 = time.perf_counter()

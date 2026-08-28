@@ -1,0 +1,26 @@
+# مختبر تقييم للمطوّر فقط - يقارن اختيار الصنف الصحيح بين Local Matching
+# وClaude Semantic (وGemini لاحقاً، Stub غير مُفعَّل حالياً) على نفس بيانات
+# الفاتورة/المرشّحين بالضبط لكل نموذج. Ground Truth حقيقي من فواتير مؤكَّدة
+# فعلياً بالمشروع (راجع generate_dataset.py). **ليس جزءاً من التطبيق
+# النهائي للمستخدم** - أداة تطوير محلية تُشغَّل يدوياً بـ`npx promptfoo eval`.
+description: "سنافي - مقارنة Local Matching مقابل Claude Semantic (Ground Truth حقيقي)"
+
+prompts:
+  - "{{description}}"
+
+providers:
+  - id: "python:providers/local_provider.py"
+    label: local
+  - id: "python:providers/claude_semantic_provider.py"
+    label: claude_semantic
+  - id: "python:providers/gemini_provider.py"
+    label: gemini_stub
+
+tests: file://tests.json
+
+defaultTest:
+  assert:
+    - type: equals
+      value: "{{expected_code}}"
+
+outputPath: results.json

@@ -49,6 +49,15 @@ _MAX_CANDIDATES_BEFORE_SCORING = 80  # سقف المجموع بعد دمج كل 
 _SIZE_BUCKET_LOG_STEP = math.log(1.05)  # نفس نسبة تسامح 5% المستخدمة بـitem_attributes.size_status
 _MIN_BRAND_TOKEN_LEN = 3  # حد أدنى لطول الماركة عشان "نثق" فيها بما يكفي للاسترجاع/المكافأة/العقوبة
 
+# كلمات "مظلة" معروفة يستخدمها بعض العملاء بالكتالوج لصنف يغطي عدة نكهات/
+# أنواع فعلية بكود واحد (Benchmark حقيقي 2026-08-28: "لوزين كرواسان نكهات
+# 60جم" يغطي زعتر/جبنة/شوكولاتة... إلخ فعلياً بنفس الكود؛ ونفس النمط شوهد
+# سابقاً هالجلسة بحالة "منوع" الحقيقية بـtests). جدول بيانات صريح وعام -
+# يُضاف له كلمات جديدة مستقبلاً بدون لمس أي منطق. راجع _content_tokens
+# و_retrieve_candidate_hits (مصدر 5) لكيفية استخدامها بحذر (تدخل السباق
+# فقط لو تشارك الفاتورة كلمة عائلة المنتج الفعلية، مو wildcard عالمي).
+_GENERIC_VARIANT_WORDS = frozenset({"نكهات", "نكهه", "منوع"})
+
 # وحدات تعبئة "خارجية" بالجملة (فاتورة المورد غالباً تكتب بها) مقابل "حبة"
 # (القاعدة غالباً مسجّلة بسعر أصغر وحدة بيع) - اختلاف طبيعي متوقع بين
 # فاتورة جملة وقاعدة صنف، مو دليل صنف مختلف بمفرده (راجع _is_packaging_tier_pair).
@@ -91,6 +100,10 @@ class ReferenceIndex:
     by_unit_field: dict[str, list[int]] = field(default_factory=dict)
     by_brand: dict[str, list[int]] = field(default_factory=dict)
     by_code: dict[str, list[int]] = field(default_factory=dict)
+    # بند 5 (Safety Patch #3، 2026-08-28): صفوف كتالوج مسجَّلة باسم "مظلة"
+    # عام (_GENERIC_VARIANT_WORDS، مثلاً "نكهات") - مفتاح كلمة عائلة المنتج
+    # الفعلية (مثلاً "كرواسان") -> قائمة صفوف تلك العائلة. راجع _content_tokens.
+    by_generic_variant_token: dict[str, list[int]] = field(default_factory=dict)
 
 
 def _size_bucket_key(value: float) -> int:
@@ -105,6 +118,30 @@ def _size_buckets_for(value: float) -> tuple[int, int, int]:
     وقت الاسترجاع فقط؛ الفهرسة نفسها تخزّن كل صنف بصندوقه المضبوط بس."""
     center = _size_bucket_key(value)
     return (center - 1, center, center + 1)
+
+
+def _content_tokens(attrs: ItemAttributes) -> frozenset[str]:
+    """كلمات "عائلة المنتج الفعلية" لنص مطبَّع - تُستخدم فقط لمصدر الاسترجاع
+    Generic Variant (بند 5). تستبعد فقط: كلمات تحتوي رقم (حجم/عدد)، وكلمات
+    "المظلة العامة" نفسها (_GENERIC_VARIANT_WORDS). حد أدنى لطول الكلمة (نفس
+    _MIN_BRAND_TOKEN_LEN) يمنع أدوات ربط قصيرة من إحداث تقاطع كاذب.
+    **عمداً ما تستبعد attrs.brand**: تخمين الماركة ضعيف عمداً (أول كلمة
+    بالنص) - لسطر فاتورة بلا ماركة حقيقية مطبوعة، الكلمة المخمَّنة غالباً
+    هي فعلاً كلمة "عائلة المنتج" (مثال حقيقي: "كرواسان الزعتر" -> brand
+    المخمَّن = "كرواسان" نفسها، بالضبط الكلمة المطلوبة للمطابقة هنا) -
+    استبعادها كان يفشّل التطابق بدل ما يحميه."""
+    if not attrs.normalized_text:
+        return frozenset()
+    tokens = set()
+    for tok in attrs.normalized_text.split():
+        if len(tok) < _MIN_BRAND_TOKEN_LEN:
+            continue
+        if any(ch.isdigit() for ch in tok):
+            continue
+        if tok in _GENERIC_VARIANT_WORDS:
+            continue
+        tokens.add(tok)
+    return frozenset(tokens)
 
 
 def build_reference_attrs_index(reference: list[ReferenceItem]) -> ReferenceIndex:
@@ -130,6 +167,9 @@ def build_reference_attrs_index(reference: list[ReferenceItem]) -> ReferenceInde
             index.by_brand.setdefault(attrs.brand, []).append(i)
         if item.code:
             index.by_code.setdefault(item.code, []).append(i)
+        if attrs.normalized_text and (set(attrs.normalized_text.split()) & _GENERIC_VARIANT_WORDS):
+            for tok in _content_tokens(attrs):
+                index.by_generic_variant_token.setdefault(tok, []).append(i)
 
     return index
 
@@ -187,12 +227,28 @@ def _retrieve_candidate_hits(
             hits[idx].add("brand")
 
     # مصدر 4: تشابه الاسم (الموجود سابقاً كمصدر وحيد) - يبقى مصدر واحد من
-    # عدة مصادر الآن، مو المصدر الوحيد اللي يحدّد مين يوصل لمرحلة التقييم
-    if line.description and reference:
-        choices = {i: item.name for i, item in enumerate(reference)}
-        pool = process.extract(line.description, choices, scorer=fuzz.token_sort_ratio, limit=_NAME_POOL_SIZE)
+    # عدة مصادر الآن، مو المصدر الوحيد اللي يحدّد مين يوصل لمرحلة التقييم.
+    # Safety Patch #3 (2026-08-28، Benchmark حقيقي): يقارن النص *المطبَّع*
+    # بالطرفين (بدل line.description/item.name الخام كما كان) - عشان
+    # _SPELLING_ALIASES/_BRAND_ALIASES وكل تطبيع حروف عربي آخر (أ/إ/آ/ة/ى..)
+    # يستفيد منه هذا المصدر الضبابي أيضاً، مو بس فحص التطابق الحرفي. نفس
+    # الـscorer/الحد الأقصى بالضبط - توسيع صحة المقارنة، مو تساهل جديد.
+    if line_attrs.normalized_text and reference:
+        choices = {i: reference_index.attrs[i].normalized_text for i in range(len(reference))}
+        pool = process.extract(line_attrs.normalized_text, choices, scorer=fuzz.token_sort_ratio, limit=_NAME_POOL_SIZE)
         for _, _score, idx in pool:
             hits[idx].add("name")
+
+    # مصدر 5: بديل عام بالكتالوج (بند 5 Safety Patch #3) - راجع توثيق
+    # _GENERIC_VARIANT_WORDS/_content_tokens أعلاه. محافظ: يُفعَّل فقط لصفوف
+    # مسجَّلة صراحة بكلمة مظلة معروفة، وفقط لو الفاتورة تشارك كلمة عائلة
+    # المنتج الفعلية معها - صنف محدد بكوده الخاص (لو موجود) ينافس بنفس
+    # المجموعة بمصادره القوية (name/size/...) عادي، القرار النهائي للتقييم
+    # الكامل كالعادة (هذا بس يضمن دخول السباق، مو فوز تلقائي).
+    if reference_index.by_generic_variant_token:
+        for tok in _content_tokens(line_attrs):
+            for idx in reference_index.by_generic_variant_token.get(tok, ()):
+                hits[idx].add("generic_variant")
 
     return hits
 
@@ -213,7 +269,9 @@ def _candidate_priority_tier(sources: set[str]) -> int:
         return 1
     if "brand" in sources and structural_hits:
         return 2
-    if "name" in sources:
+    # "name" و"generic_variant" (بند 5 Safety Patch #3) كلاهما إشارة نصية
+    # تقريبية بقوة مشابهة - نفس الرتبة، نفس الحصة (_TIER_QUOTAS[3])
+    if "name" in sources or "generic_variant" in sources:
         return 3
     return 4  # مصدر بنيوي وحيد بس (مثلاً حجم فقط) - أضعف أولوية، أول من يُقصّ
 
